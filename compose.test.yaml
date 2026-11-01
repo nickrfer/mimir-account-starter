@@ -1,0 +1,10 @@
+services:
+  api:
+    ports: !override ['127.0.0.1::3000']
+  dev-web:
+    ports: !override ['127.0.0.1::5173']
+  admin:
+    networks: [database, frontend]
+    volumes: [auth_probe:/probe-state]
+volumes:
+  auth_probe:

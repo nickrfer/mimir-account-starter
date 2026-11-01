@@ -1,0 +1,13 @@
+# Bootstrap is independent of compose.yaml: no .env or database needed yet.
+services:
+  setup:
+    image: node:24.22.1-bookworm-slim@sha256:be8204d4bd327363357f532187b752ff62759c31bedf98e9e18fc08c9cbd605c
+    user: '${LOCAL_UID:-1000}:${LOCAL_GID:-1000}'
+    working_dir: /workspace
+    volumes:
+      - .:/workspace
+    network_mode: none
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    entrypoint: [node, tools/admin/setup.mjs]
+    command: [/workspace, .]

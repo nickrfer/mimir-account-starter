@@ -1,0 +1,579 @@
+{
+  "type": "object",
+  "properties": {
+    "schemaVersion": {
+      "const": "mimir.manifest.v2"
+    },
+    "generatedAt": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "integrityNotice": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 1000
+    },
+    "workspace": {
+      "$ref": "#/$defs/Workspace"
+    },
+    "delivery": {
+      "$ref": "#/$defs/Delivery"
+    },
+    "summary": {
+      "$ref": "#/$defs/Summary"
+    },
+    "files": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/File"
+      },
+      "minItems": 2,
+      "maxItems": 1002
+    },
+    "transactions": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/Transaction"
+      },
+      "minItems": 1,
+      "maxItems": 1000
+    },
+    "contextTransactions": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/Transaction"
+      },
+      "maxItems": 1000
+    },
+    "reimbursementLinks": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/Reimbursement"
+      },
+      "maxItems": 1000
+    },
+    "pendingItems": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/Pending"
+      },
+      "maxItems": 4000
+    }
+  },
+  "required": [
+    "schemaVersion",
+    "generatedAt",
+    "integrityNotice",
+    "workspace",
+    "delivery",
+    "summary",
+    "files",
+    "transactions",
+    "contextTransactions",
+    "reimbursementLinks",
+    "pendingItems"
+  ],
+  "additionalProperties": false,
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://mimir-account.invalid/contracts/manifest-v2.schema.json",
+  "title": "Manifesto de entrega Mimir Account v2",
+  "$defs": {
+    "Workspace": {
+      "type": "object",
+      "properties": {
+        "workspaceId": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "companyName": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200
+        },
+        "currency": {
+          "const": "BRL"
+        }
+      },
+      "required": [
+        "workspaceId",
+        "companyName",
+        "currency"
+      ],
+      "additionalProperties": false
+    },
+    "Transaction": {
+      "type": "object",
+      "properties": {
+        "transactionId": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "accountId": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "accountName": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200
+        },
+        "accountType": {
+          "type": "string",
+          "enum": [
+            "PF",
+            "PJ"
+          ]
+        },
+        "occurredOn": {
+          "type": "string",
+          "format": "date",
+          "pattern": "^(19[0-9]{2}|[2-9][0-9]{3})-[0-9]{2}-[0-9]{2}$"
+        },
+        "direction": {
+          "type": "string",
+          "enum": [
+            "ENTRADA",
+            "SAIDA"
+          ]
+        },
+        "amountCents": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 99999999999
+        },
+        "descriptionOriginal": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 500
+        },
+        "categoryOriginal": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 100
+        },
+        "classification": {
+          "type": "string",
+          "enum": [
+            "RECEITA",
+            "DESPESA",
+            "TRANSFERENCIA",
+            "A_ESCLARECER"
+          ]
+        },
+        "isPfBusinessExpense": {
+          "type": "boolean"
+        },
+        "explanationOriginal": {
+          "type": "string",
+          "maxLength": 2000
+        },
+        "sourceType": {
+          "type": "string",
+          "enum": [
+            "MANUAL",
+            "CSV"
+          ]
+        },
+        "sourceCode": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 80
+        },
+        "externalId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200
+        },
+        "documentIds": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "uniqueItems": true,
+          "maxItems": 1000
+        },
+        "reimbursementStatus": {
+          "type": "string",
+          "enum": [
+            "NAO_APLICAVEL",
+            "PENDENTE_REEMBOLSO",
+            "REEMBOLSADA_NO_MES",
+            "REEMBOLSADA_OUTRO_MES",
+            "LIQUIDACAO_DE_REEMBOLSO"
+          ]
+        }
+      },
+      "required": [
+        "transactionId",
+        "accountId",
+        "accountName",
+        "accountType",
+        "occurredOn",
+        "direction",
+        "amountCents",
+        "descriptionOriginal",
+        "categoryOriginal",
+        "classification",
+        "isPfBusinessExpense",
+        "explanationOriginal",
+        "sourceType",
+        "sourceCode",
+        "externalId",
+        "documentIds",
+        "reimbursementStatus"
+      ],
+      "additionalProperties": false
+    },
+    "Reimbursement": {
+      "type": "object",
+      "properties": {
+        "reimbursementLinkId": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "pfExpenseTransactionId": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "pjReimbursementTransactionId": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "pfInflowTransactionId": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "uuid"
+        },
+        "amountCents": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 99999999999
+        },
+        "pfOriginDocumentIds": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "uniqueItems": true,
+          "maxItems": 1000
+        },
+        "roleInPeriod": {
+          "type": "string",
+          "enum": [
+            "DESPESA_ORIGEM_NO_PERIODO",
+            "REEMBOLSO_PJ_NO_PERIODO",
+            "AMBOS_NO_PERIODO",
+            "ENTRADA_PF_NO_PERIODO"
+          ]
+        }
+      },
+      "required": [
+        "reimbursementLinkId",
+        "pfExpenseTransactionId",
+        "pjReimbursementTransactionId",
+        "pfInflowTransactionId",
+        "amountCents",
+        "pfOriginDocumentIds",
+        "roleInPeriod"
+      ],
+      "additionalProperties": false
+    },
+    "Pending": {
+      "type": "object",
+      "properties": {
+        "pendingId": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "transactionId": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "pendingType": {
+          "type": "string",
+          "enum": [
+            "DOCUMENTO_AUSENTE",
+            "CLASSIFICACAO_A_ESCLARECER",
+            "REEMBOLSO_PF_PENDENTE",
+            "DUVIDA_CADASTRADA"
+          ]
+        },
+        "status": {
+          "type": "string",
+          "enum": [
+            "PENDENTE",
+            "JUSTIFICADA",
+            "RESOLVIDA"
+          ]
+        },
+        "description": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 2000
+        },
+        "justification": {
+          "type": "string",
+          "maxLength": 2000
+        }
+      },
+      "required": [
+        "pendingId",
+        "transactionId",
+        "pendingType",
+        "status",
+        "description",
+        "justification"
+      ],
+      "additionalProperties": false
+    },
+    "CashAccount": {
+      "type": "object",
+      "properties": {
+        "accountId": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "accountName": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200
+        },
+        "accountType": {
+          "type": "string",
+          "enum": [
+            "PF",
+            "PJ"
+          ]
+        },
+        "inflowCents": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "outflowCents": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "netCents": {
+          "type": "integer",
+          "minimum": -9007199254740991,
+          "maximum": 9007199254740991
+        }
+      },
+      "required": [
+        "accountId",
+        "accountName",
+        "accountType",
+        "inflowCents",
+        "outflowCents",
+        "netCents"
+      ],
+      "additionalProperties": false
+    },
+    "Summary": {
+      "type": "object",
+      "properties": {
+        "cashFlowByAccount": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/CashAccount"
+          },
+          "maxItems": 1000
+        },
+        "businessRevenueTotalCents": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "businessExpenseTotalCents": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "reimbursementsSettledInPeriodCents": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "pendingCount": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "justifiedCount": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "categoryTotals": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/CategoryTotal"
+          },
+          "maxItems": 1000,
+          "description": "Uma linha por categoria presente em transactions, ordenada por bytes UTF-8 apos NFC e trim. Vazio para previa sem registros."
+        }
+      },
+      "required": [
+        "cashFlowByAccount",
+        "businessRevenueTotalCents",
+        "businessExpenseTotalCents",
+        "reimbursementsSettledInPeriodCents",
+        "pendingCount",
+        "justifiedCount",
+        "categoryTotals"
+      ],
+      "additionalProperties": false
+    },
+    "File": {
+      "type": "object",
+      "properties": {
+        "path": {
+          "type": "string",
+          "pattern": "^(resumo\\.html|movimentacoes\\.csv|anexos/[0-9a-f-]{36}\\.(pdf|png|jpg))$"
+        },
+        "role": {
+          "type": "string",
+          "enum": [
+            "RESUMO_HTML",
+            "PLANILHA_CSV",
+            "ANEXO_DOCUMENTO"
+          ]
+        },
+        "documentId": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "uuid"
+        },
+        "mimeType": {
+          "type": "string",
+          "enum": [
+            "text/html; charset=utf-8",
+            "text/csv; charset=utf-8",
+            "application/pdf",
+            "image/png",
+            "image/jpeg"
+          ]
+        },
+        "sizeBytes": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 115343360
+        },
+        "sha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "inclusionReasons": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "enum": [
+              "ARTEFATO_GERADO",
+              "VINCULO_DIRETO_PERIODO",
+              "CONTEXTO_REEMBOLSO"
+            ]
+          },
+          "minItems": 1,
+          "uniqueItems": true
+        }
+      },
+      "required": [
+        "path",
+        "role",
+        "documentId",
+        "mimeType",
+        "sizeBytes",
+        "sha256",
+        "inclusionReasons"
+      ],
+      "additionalProperties": false
+    },
+    "Delivery": {
+      "type": "object",
+      "properties": {
+        "snapshotId": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "operationId": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "periodMonth": {
+          "type": "string",
+          "pattern": "^(19[0-9]{2}|[2-9][0-9]{3})-(0[1-9]|1[0-2])$"
+        },
+        "versionNumber": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 2147483647
+        },
+        "capturedRevision": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 9007199254740991
+        },
+        "rectificationReason": {
+          "type": "string",
+          "maxLength": 2000
+        },
+        "capturedAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "snapshotId",
+        "operationId",
+        "periodMonth",
+        "versionNumber",
+        "capturedRevision",
+        "rectificationReason",
+        "capturedAt"
+      ],
+      "additionalProperties": false
+    },
+    "CategoryTotal": {
+      "type": "object",
+      "properties": {
+        "category": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 100
+        },
+        "inflowCents": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "outflowCents": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "netCents": {
+          "type": "integer",
+          "minimum": -9007199254740991,
+          "maximum": 9007199254740991
+        }
+      },
+      "required": [
+        "category",
+        "inflowCents",
+        "outflowCents",
+        "netCents"
+      ],
+      "additionalProperties": false,
+      "description": "Fluxo de uma categoria dos registros principais do mes; inclui transferencias. Regras de soma, unicidade e ordenacao sao semanticas."
+    }
+  },
+  "description": "Contrato documental harmonizado com RF-09. A versao v2 acrescenta categoryTotals obrigatorio. Nao implica aplicativo implementado."
+}

@@ -1,0 +1,179 @@
+{
+  "schemaVersion": "mimir.manifest.v2",
+  "generatedAt": "2026-11-06T12:00:00Z",
+  "integrityNotice": "Fixture documental sintetica do contrato v2, gerada fora da aplicacao. Nao e migracao ou alteracao de entrega publicada; exige referencia externa confiavel e nao comprova autoria.",
+  "workspace": {
+    "workspaceId": "00000000-0000-4000-8000-000000001101",
+    "companyName": "Empresa Exemplo Sintetico",
+    "currency": "BRL"
+  },
+  "delivery": {
+    "snapshotId": "00000000-0000-4000-8000-000000001711",
+    "operationId": "00000000-0000-4000-8000-000000001811",
+    "periodMonth": "2026-11",
+    "versionNumber": 1,
+    "capturedRevision": 5,
+    "rectificationReason": "",
+    "capturedAt": "2026-11-06T12:00:00Z"
+  },
+  "summary": {
+    "cashFlowByAccount": [
+      {
+        "accountId": "00000000-0000-4000-8000-000000000201",
+        "accountName": "Conta PF exemplo",
+        "accountType": "PF",
+        "inflowCents": 10000,
+        "outflowCents": 0,
+        "netCents": 10000
+      },
+      {
+        "accountId": "00000000-0000-4000-8000-000000000202",
+        "accountName": "Conta PJ exemplo",
+        "accountType": "PJ",
+        "inflowCents": 0,
+        "outflowCents": 10000,
+        "netCents": -10000
+      }
+    ],
+    "businessRevenueTotalCents": 0,
+    "businessExpenseTotalCents": 0,
+    "reimbursementsSettledInPeriodCents": 10000,
+    "pendingCount": 0,
+    "justifiedCount": 0,
+    "categoryTotals": [
+      {
+        "category": "TRANSFERENCIAS",
+        "inflowCents": 10000,
+        "outflowCents": 10000,
+        "netCents": 0
+      }
+    ]
+  },
+  "files": [
+    {
+      "path": "anexos/00000000-0000-4000-8000-000000000301.png",
+      "role": "ANEXO_DOCUMENTO",
+      "documentId": "00000000-0000-4000-8000-000000000301",
+      "mimeType": "image/png",
+      "sizeBytes": 21891,
+      "sha256": "0ceec16afbea2d1dc84d04541f2421f1e148ca76c50b4870f2f5dcc47cb504af",
+      "inclusionReasons": [
+        "CONTEXTO_REEMBOLSO"
+      ]
+    },
+    {
+      "path": "anexos/00000000-0000-4000-8000-000000000303.png",
+      "role": "ANEXO_DOCUMENTO",
+      "documentId": "00000000-0000-4000-8000-000000000303",
+      "mimeType": "image/png",
+      "sizeBytes": 22246,
+      "sha256": "33d30ea914540d894ded3af6c39d6f24db81a0f122b00dadf14369a2a0a3a2cb",
+      "inclusionReasons": [
+        "VINCULO_DIRETO_PERIODO"
+      ]
+    },
+    {
+      "path": "movimentacoes.csv",
+      "role": "PLANILHA_CSV",
+      "documentId": null,
+      "mimeType": "text/csv; charset=utf-8",
+      "sizeBytes": 693,
+      "sha256": "ef5ec9118657564a48300f349940fed9c33202afcc8d82a8da0d57ab4eb351be",
+      "inclusionReasons": [
+        "ARTEFATO_GERADO"
+      ]
+    },
+    {
+      "path": "resumo.html",
+      "role": "RESUMO_HTML",
+      "documentId": null,
+      "mimeType": "text/html; charset=utf-8",
+      "sizeBytes": 3760,
+      "sha256": "329f2f89437225e17f7349811f681f80201e98b8f8f9543ed657f964c91f3f0b",
+      "inclusionReasons": [
+        "ARTEFATO_GERADO"
+      ]
+    }
+  ],
+  "transactions": [
+    {
+      "transactionId": "00000000-0000-4000-8000-000000000404",
+      "accountId": "00000000-0000-4000-8000-000000000202",
+      "accountName": "Conta PJ exemplo",
+      "accountType": "PJ",
+      "occurredOn": "2026-11-05",
+      "direction": "SAIDA",
+      "amountCents": 10000,
+      "descriptionOriginal": "Reembolso da despesa PF de outubro",
+      "categoryOriginal": "TRANSFERENCIAS",
+      "classification": "TRANSFERENCIA",
+      "isPfBusinessExpense": false,
+      "explanationOriginal": "Registro exclusivamente sintetico.",
+      "sourceType": "MANUAL",
+      "sourceCode": "MANUAL",
+      "externalId": "00000000-0000-4000-8000-000000000404",
+      "documentIds": [
+        "00000000-0000-4000-8000-000000000303"
+      ],
+      "reimbursementStatus": "LIQUIDACAO_DE_REEMBOLSO"
+    },
+    {
+      "transactionId": "00000000-0000-4000-8000-000000000405",
+      "accountId": "00000000-0000-4000-8000-000000000201",
+      "accountName": "Conta PF exemplo",
+      "accountType": "PF",
+      "occurredOn": "2026-11-05",
+      "direction": "ENTRADA",
+      "amountCents": 10000,
+      "descriptionOriginal": "Entrada PF referente ao reembolso",
+      "categoryOriginal": "TRANSFERENCIAS",
+      "classification": "TRANSFERENCIA",
+      "isPfBusinessExpense": false,
+      "explanationOriginal": "Registro exclusivamente sintetico.",
+      "sourceType": "MANUAL",
+      "sourceCode": "MANUAL",
+      "externalId": "00000000-0000-4000-8000-000000000405",
+      "documentIds": [
+        "00000000-0000-4000-8000-000000000303"
+      ],
+      "reimbursementStatus": "LIQUIDACAO_DE_REEMBOLSO"
+    }
+  ],
+  "contextTransactions": [
+    {
+      "transactionId": "00000000-0000-4000-8000-000000000401",
+      "accountId": "00000000-0000-4000-8000-000000000201",
+      "accountName": "Conta PF exemplo",
+      "accountType": "PF",
+      "occurredOn": "2026-10-10",
+      "direction": "SAIDA",
+      "amountCents": 10000,
+      "descriptionOriginal": "Despesa empresarial paga na PF",
+      "categoryOriginal": "INFRAESTRUTURA",
+      "classification": "DESPESA",
+      "isPfBusinessExpense": true,
+      "explanationOriginal": "Registro exclusivamente sintetico.",
+      "sourceType": "MANUAL",
+      "sourceCode": "MANUAL",
+      "externalId": "00000000-0000-4000-8000-000000000401",
+      "documentIds": [
+        "00000000-0000-4000-8000-000000000301"
+      ],
+      "reimbursementStatus": "REEMBOLSADA_OUTRO_MES"
+    }
+  ],
+  "reimbursementLinks": [
+    {
+      "reimbursementLinkId": "00000000-0000-4000-8000-000000000501",
+      "pfExpenseTransactionId": "00000000-0000-4000-8000-000000000401",
+      "pjReimbursementTransactionId": "00000000-0000-4000-8000-000000000404",
+      "pfInflowTransactionId": "00000000-0000-4000-8000-000000000405",
+      "amountCents": 10000,
+      "pfOriginDocumentIds": [
+        "00000000-0000-4000-8000-000000000301"
+      ],
+      "roleInPeriod": "REEMBOLSO_PJ_NO_PERIODO"
+    }
+  ],
+  "pendingItems": []
+}

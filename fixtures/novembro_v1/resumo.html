@@ -1,0 +1,45 @@
+<!doctype html><html lang="pt-BR"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Entrega sintetica Mimir Account</title><style>body{font-family:Arial,sans-serif;max-width:1100px;margin:32px auto;padding:0 20px;color:#202020;line-height:1.5}table{border-collapse:collapse;width:100%;font-size:14px;margin:16px 0}th,td{border:1px solid #ccc;padding:8px;text-align:left;overflow-wrap:anywhere}th{background:#edf1f4}h1,h2{color:#111}pre{white-space:pre-wrap;overflow-wrap:anywhere}</style><h1>Entrega sintetica 2026-11 versao 1</h1><p>Empresa Exemplo Sintetico. Revisao 5. Datas ficticias. Nao e escrituracao, documento fiscal ou revisao profissional.</p><h2>Totais por conta e categoria em centavos</h2><p>Somente movimentacoes principais do mes. Transferencias integram o fluxo. Registros de contexto nao entram nos totais.</p><pre>{
+  &quot;cashFlowByAccount&quot;: [
+    {
+      &quot;accountId&quot;: &quot;00000000-0000-4000-8000-000000000201&quot;,
+      &quot;accountName&quot;: &quot;Conta PF exemplo&quot;,
+      &quot;accountType&quot;: &quot;PF&quot;,
+      &quot;inflowCents&quot;: 10000,
+      &quot;outflowCents&quot;: 0,
+      &quot;netCents&quot;: 10000
+    },
+    {
+      &quot;accountId&quot;: &quot;00000000-0000-4000-8000-000000000202&quot;,
+      &quot;accountName&quot;: &quot;Conta PJ exemplo&quot;,
+      &quot;accountType&quot;: &quot;PJ&quot;,
+      &quot;inflowCents&quot;: 0,
+      &quot;outflowCents&quot;: 10000,
+      &quot;netCents&quot;: -10000
+    }
+  ],
+  &quot;businessRevenueTotalCents&quot;: 0,
+  &quot;businessExpenseTotalCents&quot;: 0,
+  &quot;reimbursementsSettledInPeriodCents&quot;: 10000,
+  &quot;pendingCount&quot;: 0,
+  &quot;justifiedCount&quot;: 0,
+  &quot;categoryTotals&quot;: [
+    {
+      &quot;category&quot;: &quot;TRANSFERENCIAS&quot;,
+      &quot;inflowCents&quot;: 10000,
+      &quot;outflowCents&quot;: 10000,
+      &quot;netCents&quot;: 0
+    }
+  ]
+}</pre><h2>Movimentacoes do mes</h2><table><tr><th>Data</th><th>Conta</th><th>Direcao</th><th>Centavos</th><th>Descricao</th><th>Documentos</th></tr><tr><td>2026-11-05</td><td>Conta PJ exemplo</td><td>SAIDA</td><td>10000</td><td>Reembolso da despesa PF de outubro</td><td><a href="anexos/00000000-0000-4000-8000-000000000303.png">Comprovante sintetico</a> </td></tr><tr><td>2026-11-05</td><td>Conta PF exemplo</td><td>ENTRADA</td><td>10000</td><td>Entrada PF referente ao reembolso</td><td><a href="anexos/00000000-0000-4000-8000-000000000303.png">Comprovante sintetico</a> </td></tr></table><h2>Contexto de outros meses</h2><p>Os registros abaixo nao entram nos totais nem no CSV deste mes.</p><table><tr><th>Data</th><th>Conta</th><th>Direcao</th><th>Centavos</th><th>Descricao</th><th>Documentos</th></tr><tr><td>2026-10-10</td><td>Conta PF exemplo</td><td>SAIDA</td><td>10000</td><td>Despesa empresarial paga na PF</td><td><a href="anexos/00000000-0000-4000-8000-000000000301.png">Comprovante sintetico</a> </td></tr></table><h2>Vinculos de reembolso</h2><pre>[
+  {
+    &quot;reimbursementLinkId&quot;: &quot;00000000-0000-4000-8000-000000000501&quot;,
+    &quot;pfExpenseTransactionId&quot;: &quot;00000000-0000-4000-8000-000000000401&quot;,
+    &quot;pjReimbursementTransactionId&quot;: &quot;00000000-0000-4000-8000-000000000404&quot;,
+    &quot;pfInflowTransactionId&quot;: &quot;00000000-0000-4000-8000-000000000405&quot;,
+    &quot;amountCents&quot;: 10000,
+    &quot;pfOriginDocumentIds&quot;: [
+      &quot;00000000-0000-4000-8000-000000000301&quot;
+    ],
+    &quot;roleInPeriod&quot;: &quot;REEMBOLSO_PJ_NO_PERIODO&quot;
+  }
+]</pre><h2>Pendencias</h2><pre>[]</pre><p>Verificacao de integridade exige copia externa confiavel do manifesto. Hashes nao equivalem a assinatura digital.</p></html>

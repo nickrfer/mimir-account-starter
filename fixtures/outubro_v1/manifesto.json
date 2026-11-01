@@ -1,0 +1,193 @@
+{
+  "schemaVersion": "mimir.manifest.v2",
+  "generatedAt": "2026-10-20T12:00:00Z",
+  "integrityNotice": "Fixture documental sintetica do contrato v2, gerada fora da aplicacao. Nao e migracao ou alteracao de entrega publicada; exige referencia externa confiavel e nao comprova autoria.",
+  "workspace": {
+    "workspaceId": "00000000-0000-4000-8000-000000001101",
+    "companyName": "Empresa Exemplo Sintetico",
+    "currency": "BRL"
+  },
+  "delivery": {
+    "snapshotId": "00000000-0000-4000-8000-000000001701",
+    "operationId": "00000000-0000-4000-8000-000000001801",
+    "periodMonth": "2026-10",
+    "versionNumber": 1,
+    "capturedRevision": 4,
+    "rectificationReason": "",
+    "capturedAt": "2026-10-20T12:00:00Z"
+  },
+  "summary": {
+    "cashFlowByAccount": [
+      {
+        "accountId": "00000000-0000-4000-8000-000000000201",
+        "accountName": "Conta PF exemplo",
+        "accountType": "PF",
+        "inflowCents": 0,
+        "outflowCents": 10000,
+        "netCents": -10000
+      },
+      {
+        "accountId": "00000000-0000-4000-8000-000000000202",
+        "accountName": "Conta PJ exemplo",
+        "accountType": "PJ",
+        "inflowCents": 200000,
+        "outflowCents": 500,
+        "netCents": 199500
+      }
+    ],
+    "businessRevenueTotalCents": 200000,
+    "businessExpenseTotalCents": 10500,
+    "reimbursementsSettledInPeriodCents": 0,
+    "pendingCount": 1,
+    "justifiedCount": 1,
+    "categoryTotals": [
+      {
+        "category": "INFRAESTRUTURA",
+        "inflowCents": 0,
+        "outflowCents": 10000,
+        "netCents": -10000
+      },
+      {
+        "category": "SERVICOS",
+        "inflowCents": 200000,
+        "outflowCents": 0,
+        "netCents": 200000
+      },
+      {
+        "category": "TARIFAS",
+        "inflowCents": 0,
+        "outflowCents": 500,
+        "netCents": -500
+      }
+    ]
+  },
+  "files": [
+    {
+      "path": "anexos/00000000-0000-4000-8000-000000000301.png",
+      "role": "ANEXO_DOCUMENTO",
+      "documentId": "00000000-0000-4000-8000-000000000301",
+      "mimeType": "image/png",
+      "sizeBytes": 21891,
+      "sha256": "0ceec16afbea2d1dc84d04541f2421f1e148ca76c50b4870f2f5dcc47cb504af",
+      "inclusionReasons": [
+        "VINCULO_DIRETO_PERIODO"
+      ]
+    },
+    {
+      "path": "anexos/00000000-0000-4000-8000-000000000302.png",
+      "role": "ANEXO_DOCUMENTO",
+      "documentId": "00000000-0000-4000-8000-000000000302",
+      "mimeType": "image/png",
+      "sizeBytes": 22530,
+      "sha256": "22e47ad232eaff1888ce114f392796c8fef0690190e7b883228615e7fc5a52d5",
+      "inclusionReasons": [
+        "VINCULO_DIRETO_PERIODO"
+      ]
+    },
+    {
+      "path": "movimentacoes.csv",
+      "role": "PLANILHA_CSV",
+      "documentId": null,
+      "mimeType": "text/csv; charset=utf-8",
+      "sizeBytes": 855,
+      "sha256": "e508dbee1551c3582d65e3d4076f8bb55ce6c1444006d8fec15ba0430b21307a",
+      "inclusionReasons": [
+        "ARTEFATO_GERADO"
+      ]
+    },
+    {
+      "path": "resumo.html",
+      "role": "RESUMO_HTML",
+      "documentId": null,
+      "mimeType": "text/html; charset=utf-8",
+      "sizeBytes": 4292,
+      "sha256": "548a7bdf6c9596f30f531687207f53dc8389e72f4b1d55c32251bf1249839a20",
+      "inclusionReasons": [
+        "ARTEFATO_GERADO"
+      ]
+    }
+  ],
+  "transactions": [
+    {
+      "transactionId": "00000000-0000-4000-8000-000000000401",
+      "accountId": "00000000-0000-4000-8000-000000000201",
+      "accountName": "Conta PF exemplo",
+      "accountType": "PF",
+      "occurredOn": "2026-10-10",
+      "direction": "SAIDA",
+      "amountCents": 10000,
+      "descriptionOriginal": "Despesa empresarial paga na PF",
+      "categoryOriginal": "INFRAESTRUTURA",
+      "classification": "DESPESA",
+      "isPfBusinessExpense": true,
+      "explanationOriginal": "Registro exclusivamente sintetico.",
+      "sourceType": "MANUAL",
+      "sourceCode": "MANUAL",
+      "externalId": "00000000-0000-4000-8000-000000000401",
+      "documentIds": [
+        "00000000-0000-4000-8000-000000000301"
+      ],
+      "reimbursementStatus": "PENDENTE_REEMBOLSO"
+    },
+    {
+      "transactionId": "00000000-0000-4000-8000-000000000402",
+      "accountId": "00000000-0000-4000-8000-000000000202",
+      "accountName": "Conta PJ exemplo",
+      "accountType": "PJ",
+      "occurredOn": "2026-10-12",
+      "direction": "ENTRADA",
+      "amountCents": 200000,
+      "descriptionOriginal": "Receita de servico exemplo",
+      "categoryOriginal": "SERVICOS",
+      "classification": "RECEITA",
+      "isPfBusinessExpense": false,
+      "explanationOriginal": "Registro exclusivamente sintetico.",
+      "sourceType": "MANUAL",
+      "sourceCode": "MANUAL",
+      "externalId": "00000000-0000-4000-8000-000000000402",
+      "documentIds": [
+        "00000000-0000-4000-8000-000000000302"
+      ],
+      "reimbursementStatus": "NAO_APLICAVEL"
+    },
+    {
+      "transactionId": "00000000-0000-4000-8000-000000000403",
+      "accountId": "00000000-0000-4000-8000-000000000202",
+      "accountName": "Conta PJ exemplo",
+      "accountType": "PJ",
+      "occurredOn": "2026-10-15",
+      "direction": "SAIDA",
+      "amountCents": 500,
+      "descriptionOriginal": "=TARIFA_EXEMPLO",
+      "categoryOriginal": "TARIFAS",
+      "classification": "DESPESA",
+      "isPfBusinessExpense": false,
+      "explanationOriginal": "Registro exclusivamente sintetico.",
+      "sourceType": "MANUAL",
+      "sourceCode": "MANUAL",
+      "externalId": "00000000-0000-4000-8000-000000000403",
+      "documentIds": [],
+      "reimbursementStatus": "NAO_APLICAVEL"
+    }
+  ],
+  "contextTransactions": [],
+  "reimbursementLinks": [],
+  "pendingItems": [
+    {
+      "pendingId": "00000000-0000-4000-8000-000000000601",
+      "transactionId": "00000000-0000-4000-8000-000000000403",
+      "pendingType": "DOCUMENTO_AUSENTE",
+      "status": "JUSTIFICADA",
+      "description": "Despesa sem comprovante anexado.",
+      "justification": "Exemplo de justificativa documental; nao houve revisao profissional."
+    },
+    {
+      "pendingId": "00000000-0000-4000-8000-000000000602",
+      "transactionId": "00000000-0000-4000-8000-000000000401",
+      "pendingType": "REEMBOLSO_PF_PENDENTE",
+      "status": "PENDENTE",
+      "description": "Despesa PF ainda sem vinculo de reembolso.",
+      "justification": ""
+    }
+  ]
+}

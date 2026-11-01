@@ -1,0 +1,3 @@
+transaction_id,account_id,account_name,account_type,occurred_on,direction,amount_cents,description,category,classification,is_pf_business_expense,explanation,document_ids
+00000000-0000-4000-8000-000000000404,00000000-0000-4000-8000-000000000202,Conta PJ exemplo,PJ,2026-11-05,SAIDA,10000,Reembolso da despesa PF de outubro,TRANSFERENCIAS,TRANSFERENCIA,false,Registro exclusivamente sintetico.,00000000-0000-4000-8000-000000000303
+00000000-0000-4000-8000-000000000405,00000000-0000-4000-8000-000000000201,Conta PF exemplo,PF,2026-11-05,ENTRADA,10000,Entrada PF referente ao reembolso,TRANSFERENCIAS,TRANSFERENCIA,false,Registro exclusivamente sintetico.,00000000-0000-4000-8000-000000000303

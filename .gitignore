@@ -1,0 +1,45 @@
+# Configuracao local e segredos
+.env
+.env.*
+!.env.example
+!.env.runtime.example
+!.env.admin.example
+*.pem
+*.key
+*.p12
+*.pfx
+secrets/
+credentials/
+
+# Dependencias e builds
+node_modules/
+dist/
+build/
+coverage/
+.vite/
+*.tsbuildinfo
+playwright-report/
+test-results/
+
+# Dados locais, temporarios e logs
+.local/
+.data/
+data/
+tmp/
+temp/
+pgdata/
+backups/
+private/
+*.log
+*.dump
+*.backup
+*.sqlite
+*.sqlite3
+__pycache__/
+*.pyc
+
+# Sistema/editor
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/

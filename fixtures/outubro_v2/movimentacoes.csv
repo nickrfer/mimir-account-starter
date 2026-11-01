@@ -1,0 +1,4 @@
+transaction_id,account_id,account_name,account_type,occurred_on,direction,amount_cents,description,category,classification,is_pf_business_expense,explanation,document_ids
+00000000-0000-4000-8000-000000000401,00000000-0000-4000-8000-000000000201,Conta PF exemplo,PF,2026-10-10,SAIDA,10000,Despesa empresarial paga na PF,INFRAESTRUTURA,DESPESA,true,Registro exclusivamente sintetico.,00000000-0000-4000-8000-000000000301
+00000000-0000-4000-8000-000000000402,00000000-0000-4000-8000-000000000202,Conta PJ exemplo,PJ,2026-10-12,ENTRADA,200000,Receita de servico exemplo,SERVICOS,RECEITA,false,Registro exclusivamente sintetico.,00000000-0000-4000-8000-000000000302
+00000000-0000-4000-8000-000000000403,00000000-0000-4000-8000-000000000202,Conta PJ exemplo,PJ,2026-10-15,SAIDA,500,'=TARIFA_EXEMPLO,TARIFAS,DESPESA,false,Registro exclusivamente sintetico.,

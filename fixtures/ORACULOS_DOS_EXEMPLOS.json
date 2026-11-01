@@ -1,0 +1,83 @@
+{
+  "notice": "Oraculos documentais do manifesto v2. Valores em centavos calculados manualmente; nao sao resultados de execucao do aplicativo.",
+  "cases": {
+    "outubro_v1": {
+      "revenue": 200000,
+      "expense": 10500,
+      "settled": 0,
+      "pending": 1,
+      "justified": 1,
+      "main": 3,
+      "context": 0,
+      "docs": 2,
+      "categoryTotals": [
+        {
+          "category": "INFRAESTRUTURA",
+          "inflowCents": 0,
+          "outflowCents": 10000,
+          "netCents": -10000
+        },
+        {
+          "category": "SERVICOS",
+          "inflowCents": 200000,
+          "outflowCents": 0,
+          "netCents": 200000
+        },
+        {
+          "category": "TARIFAS",
+          "inflowCents": 0,
+          "outflowCents": 500,
+          "netCents": -500
+        }
+      ]
+    },
+    "novembro_v1": {
+      "revenue": 0,
+      "expense": 0,
+      "settled": 10000,
+      "pending": 0,
+      "justified": 0,
+      "main": 2,
+      "context": 1,
+      "docs": 2,
+      "categoryTotals": [
+        {
+          "category": "TRANSFERENCIAS",
+          "inflowCents": 10000,
+          "outflowCents": 10000,
+          "netCents": 0
+        }
+      ]
+    },
+    "outubro_v2": {
+      "revenue": 200000,
+      "expense": 10500,
+      "settled": 0,
+      "pending": 0,
+      "justified": 1,
+      "main": 3,
+      "context": 2,
+      "docs": 3,
+      "categoryTotals": [
+        {
+          "category": "INFRAESTRUTURA",
+          "inflowCents": 0,
+          "outflowCents": 10000,
+          "netCents": -10000
+        },
+        {
+          "category": "SERVICOS",
+          "inflowCents": 200000,
+          "outflowCents": 0,
+          "netCents": 200000
+        },
+        {
+          "category": "TARIFAS",
+          "inflowCents": 0,
+          "outflowCents": 500,
+          "netCents": -500
+        }
+      ]
+    }
+  }
+}

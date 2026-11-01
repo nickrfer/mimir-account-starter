@@ -1,0 +1,1797 @@
+openapi: 3.1.0
+info:
+  title: Mimir Account Jornada inicial
+  version: 0.5.0
+  description: Contrato documental da primeira jornada, harmonizado com RF-09. Summary
+    inclui categoryTotals obrigatorio; manifesto de saida mimir.manifest.v2. Nao ha
+    servidor implementado neste pacote.
+servers:
+- url: http://localhost:3000/api/v1
+  description: Endereco proposto para desenvolvimento local, nao implantado
+security:
+- sessionCookie: []
+paths:
+  /session:
+    post:
+      operationId: login
+      summary: Autenticar e criar sessao
+      description: Autenticar e criar sessao
+      responses:
+        '200':
+          description: Sucesso
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Session'
+          headers:
+            Set-Cookie:
+              schema:
+                type: string
+              description: mimir_session; HttpOnly; SameSite=Lax; Path=/; Secure em
+                HTTPS. Sem token literal de exemplo.
+        '400':
+          description: Requisicao malformada
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Sessao ausente/invalida/expirada ou login invalido
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: CSRF ou origem invalida
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Objeto ausente ou de outro proprietario
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: Conflito de revisao, dominio ou idempotencia
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '413':
+          description: Tamanho excedido
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '415':
+          description: Tipo nao aceito
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '422':
+          description: Conteudo invalido
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Erro interno sanitizado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '429':
+          description: Limite de login; respeitar Retry-After
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          headers:
+            Retry-After:
+              schema:
+                type: string
+      parameters: []
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginInput'
+    get:
+      operationId: getSession
+      summary: Ler contexto autenticado
+      description: Ler contexto autenticado
+      responses:
+        '200':
+          description: Sucesso
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Session'
+        '400':
+          description: Requisicao malformada
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Sessao ausente/invalida/expirada ou login invalido
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: CSRF ou origem invalida
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Objeto ausente ou de outro proprietario
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: Conflito de revisao, dominio ou idempotencia
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '413':
+          description: Tamanho excedido
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '415':
+          description: Tipo nao aceito
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '422':
+          description: Conteudo invalido
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Erro interno sanitizado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+      parameters: []
+    delete:
+      operationId: logout
+      summary: Revogar sessao
+      description: Revogar sessao
+      responses:
+        '204':
+          description: Sessao revogada e cookie removido
+          headers:
+            Set-Cookie:
+              schema:
+                type: string
+              description: Remove mimir_session com Max-Age=0
+        '400':
+          description: Requisicao malformada
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Sessao ausente/invalida/expirada ou login invalido
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: CSRF ou origem invalida
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Objeto ausente ou de outro proprietario
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: Conflito de revisao, dominio ou idempotencia
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '413':
+          description: Tamanho excedido
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '415':
+          description: Tipo nao aceito
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '422':
+          description: Conteudo invalido
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Erro interno sanitizado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+      parameters:
+      - $ref: '#/components/parameters/Csrf'
+  /accounts:
+    get:
+      operationId: listAccounts
+      summary: Listar contas proprias
+      description: Listar contas proprias
+      responses:
+        '200':
+          description: Sucesso
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Account'
+                    maxItems: 200
+                  nextCursor:
+                    type:
+                    - string
+                    - 'null'
+                required:
+                - items
+                - nextCursor
+                additionalProperties: false
+        '400':
+          description: Requisicao malformada
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Sessao ausente/invalida/expirada ou login invalido
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: CSRF ou origem invalida
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Objeto ausente ou de outro proprietario
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: Conflito de revisao, dominio ou idempotencia
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '413':
+          description: Tamanho excedido
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '415':
+          description: Tipo nao aceito
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '422':
+          description: Conteudo invalido
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Erro interno sanitizado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+      parameters:
+      - $ref: '#/components/parameters/Cursor'
+      - $ref: '#/components/parameters/Limit'
+    post:
+      operationId: createAccount
+      summary: Criar conta PF ou PJ
+      description: Criar conta PF ou PJ
+      responses:
+        '201':
+          description: Sucesso
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AccountMutation'
+        '400':
+          description: Requisicao malformada
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Sessao ausente/invalida/expirada ou login invalido
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: CSRF ou origem invalida
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Objeto ausente ou de outro proprietario
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: Conflito de revisao, dominio ou idempotencia
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '413':
+          description: Tamanho excedido
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '415':
+          description: Tipo nao aceito
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '422':
+          description: Conteudo invalido
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Erro interno sanitizado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+      parameters:
+      - $ref: '#/components/parameters/Csrf'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AccountInput'
+  /transactions:
+    post:
+      operationId: createTransaction
+      summary: Criar movimentacao manual
+      description: Criar movimentacao manual
+      responses:
+        '201':
+          description: Sucesso
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TransactionMutation'
+        '400':
+          description: Requisicao malformada
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Sessao ausente/invalida/expirada ou login invalido
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: CSRF ou origem invalida
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Objeto ausente ou de outro proprietario
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: Conflito de revisao, dominio ou idempotencia
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '413':
+          description: Tamanho excedido
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '415':
+          description: Tipo nao aceito
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '422':
+          description: Conteudo invalido
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Erro interno sanitizado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+      parameters:
+      - $ref: '#/components/parameters/Csrf'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TransactionInput'
+  /transactions/{id}/documents:
+    post:
+      operationId: uploadAndLinkDocument
+      summary: Criar documento e vincular atomicamente
+      description: Criar documento e vincular atomicamente
+      responses:
+        '201':
+          description: Sucesso
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DocumentMutation'
+        '400':
+          description: Requisicao malformada
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Sessao ausente/invalida/expirada ou login invalido
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: CSRF ou origem invalida
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Objeto ausente ou de outro proprietario
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: Conflito de revisao, dominio ou idempotencia
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '413':
+          description: Tamanho excedido
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '415':
+          description: Tipo nao aceito
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '422':
+          description: Conteudo invalido
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Erro interno sanitizado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema: &id001
+          type: string
+          format: uuid
+      - $ref: '#/components/parameters/Csrf'
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                file:
+                  type: string
+                  format: binary
+                  description: PDF, PNG ou JPEG; maximo 5 MiB. Verificar MIME, assinatura
+                    e extensao.
+                expectedRevision: &id004
+                  type: integer
+                  minimum: 1
+                  maximum: 9007199254740991
+              required:
+              - file
+              - expectedRevision
+              additionalProperties: false
+  /periods/{month}/preview:
+    get:
+      operationId: previewPeriod
+      summary: Previa consistente do periodo
+      description: Previa em visao consistente. Summary inclui categoryTotals de transactions
+        do mes, sem contextTransactions. Nao altera revision. Previa vazia retorna
+        categoryTotals=[].
+      responses:
+        '200':
+          description: Sucesso
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Preview'
+        '400':
+          description: Requisicao malformada
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Sessao ausente/invalida/expirada ou login invalido
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: CSRF ou origem invalida
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Objeto ausente ou de outro proprietario
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: Conflito de revisao, dominio ou idempotencia
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '413':
+          description: Tamanho excedido
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '415':
+          description: Tipo nao aceito
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '422':
+          description: Conteudo invalido
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Erro interno sanitizado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+      parameters:
+      - name: month
+        in: path
+        required: true
+        schema: &id002
+          type: string
+          pattern: ^(19[0-9]{2}|[2-9][0-9]{3})-(0[1-9]|1[0-2])$
+  /deliveries:
+    post:
+      operationId: captureDelivery
+      summary: Capturar e enfileirar entrega
+      description: Consultar chave antes da revisao. Mesmo payload retorna operacao
+        original; payload diferente 409. Chave nova valida expectedRevision. Captura
+        nao incrementa revision. 202 para operacao nao terminal; 200 para repeticao
+        terminal.
+      responses:
+        '202':
+          description: Sucesso
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Operation'
+        '400':
+          description: Requisicao malformada
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Sessao ausente/invalida/expirada ou login invalido
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: CSRF ou origem invalida
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Objeto ausente ou de outro proprietario
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: Conflito de revisao, dominio ou idempotencia
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '413':
+          description: Tamanho excedido
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '415':
+          description: Tipo nao aceito
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '422':
+          description: Conteudo invalido
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Erro interno sanitizado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '200':
+          description: Repeticao de comando cuja operacao esta PRONTA ou FALHA
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Operation'
+      parameters:
+      - $ref: '#/components/parameters/Idempotency'
+      - $ref: '#/components/parameters/Csrf'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CaptureInput'
+  /operations/{id}:
+    get:
+      operationId: getOperation
+      summary: Consultar operacao propria
+      description: Consultar operacao propria
+      responses:
+        '200':
+          description: Sucesso
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Operation'
+        '400':
+          description: Requisicao malformada
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Sessao ausente/invalida/expirada ou login invalido
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: CSRF ou origem invalida
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Objeto ausente ou de outro proprietario
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: Conflito de revisao, dominio ou idempotencia
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '413':
+          description: Tamanho excedido
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '415':
+          description: Tipo nao aceito
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '422':
+          description: Conteudo invalido
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Erro interno sanitizado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema: *id001
+  /periods/{month}/deliveries:
+    get:
+      operationId: listDeliveries
+      summary: Listar historico de entregas
+      description: Listar historico de entregas
+      responses:
+        '200':
+          description: Sucesso
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Operation'
+                    maxItems: 200
+                  nextCursor:
+                    type:
+                    - string
+                    - 'null'
+                required:
+                - items
+                - nextCursor
+                additionalProperties: false
+        '400':
+          description: Requisicao malformada
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Sessao ausente/invalida/expirada ou login invalido
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: CSRF ou origem invalida
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Objeto ausente ou de outro proprietario
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: Conflito de revisao, dominio ou idempotencia
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '413':
+          description: Tamanho excedido
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '415':
+          description: Tipo nao aceito
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '422':
+          description: Conteudo invalido
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Erro interno sanitizado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+      parameters:
+      - name: month
+        in: path
+        required: true
+        schema: *id002
+      - $ref: '#/components/parameters/Cursor'
+      - $ref: '#/components/parameters/Limit'
+  /deliveries/{snapshotId}/package:
+    get:
+      operationId: downloadPackage
+      summary: Baixar ZIP publicado
+      description: Baixar ZIP publicado
+      responses:
+        '200':
+          description: Bytes exatos do ZIP publicado
+          content:
+            application/zip:
+              schema:
+                type: string
+                format: binary
+          headers:
+            Content-Disposition:
+              schema:
+                type: string
+              description: attachment; nome de arquivo gerado pelo servidor
+            X-Content-Type-Options:
+              schema:
+                const: nosniff
+        '400':
+          description: Requisicao malformada
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Sessao ausente/invalida/expirada ou login invalido
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: CSRF ou origem invalida
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Objeto ausente ou de outro proprietario
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: Conflito de revisao, dominio ou idempotencia
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '413':
+          description: Tamanho excedido
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '415':
+          description: Tipo nao aceito
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '422':
+          description: Conteudo invalido
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Erro interno sanitizado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+      parameters:
+      - name: snapshotId
+        in: path
+        required: true
+        schema: *id001
+  /deliveries/{snapshotId}/manifest:
+    get:
+      operationId: downloadManifest
+      summary: Baixar manifesto externo de referencia
+      description: Retornar bytes originais publicados; nao reserializar JSONB. Referencia
+        externa nao equivale a assinatura digital.
+      responses:
+        '200':
+          description: Sucesso
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Manifest'
+        '400':
+          description: Requisicao malformada
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Sessao ausente/invalida/expirada ou login invalido
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: CSRF ou origem invalida
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Objeto ausente ou de outro proprietario
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: Conflito de revisao, dominio ou idempotencia
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '413':
+          description: Tamanho excedido
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '415':
+          description: Tipo nao aceito
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '422':
+          description: Conteudo invalido
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Erro interno sanitizado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+      parameters:
+      - name: snapshotId
+        in: path
+        required: true
+        schema: *id001
+components:
+  schemas:
+    Workspace:
+      type: object
+      properties:
+        workspaceId:
+          type: string
+          format: uuid
+        companyName:
+          type: string
+          minLength: 1
+          maxLength: 200
+        currency:
+          const: BRL
+      required:
+      - workspaceId
+      - companyName
+      - currency
+      additionalProperties: false
+    Transaction:
+      type: object
+      properties:
+        transactionId:
+          type: string
+          format: uuid
+        accountId:
+          type: string
+          format: uuid
+        accountName:
+          type: string
+          minLength: 1
+          maxLength: 200
+        accountType:
+          type: string
+          enum:
+          - PF
+          - PJ
+        occurredOn:
+          type: string
+          format: date
+          pattern: ^(19[0-9]{2}|[2-9][0-9]{3})-[0-9]{2}-[0-9]{2}$
+        direction:
+          type: string
+          enum:
+          - ENTRADA
+          - SAIDA
+        amountCents:
+          type: integer
+          minimum: 1
+          maximum: 99999999999
+        descriptionOriginal:
+          type: string
+          minLength: 1
+          maxLength: 500
+        categoryOriginal:
+          type: string
+          minLength: 1
+          maxLength: 100
+        classification:
+          type: string
+          enum:
+          - RECEITA
+          - DESPESA
+          - TRANSFERENCIA
+          - A_ESCLARECER
+        isPfBusinessExpense:
+          type: boolean
+        explanationOriginal:
+          type: string
+          maxLength: 2000
+        sourceType:
+          type: string
+          enum:
+          - MANUAL
+          - CSV
+        sourceCode:
+          type: string
+          minLength: 1
+          maxLength: 80
+        externalId:
+          type: string
+          minLength: 1
+          maxLength: 200
+        documentIds:
+          type: array
+          items:
+            type: string
+            format: uuid
+          uniqueItems: true
+          maxItems: 1000
+        reimbursementStatus:
+          type: string
+          enum:
+          - NAO_APLICAVEL
+          - PENDENTE_REEMBOLSO
+          - REEMBOLSADA_NO_MES
+          - REEMBOLSADA_OUTRO_MES
+          - LIQUIDACAO_DE_REEMBOLSO
+      required:
+      - transactionId
+      - accountId
+      - accountName
+      - accountType
+      - occurredOn
+      - direction
+      - amountCents
+      - descriptionOriginal
+      - categoryOriginal
+      - classification
+      - isPfBusinessExpense
+      - explanationOriginal
+      - sourceType
+      - sourceCode
+      - externalId
+      - documentIds
+      - reimbursementStatus
+      additionalProperties: false
+    Reimbursement:
+      type: object
+      properties:
+        reimbursementLinkId:
+          type: string
+          format: uuid
+        pfExpenseTransactionId:
+          type: string
+          format: uuid
+        pjReimbursementTransactionId:
+          type: string
+          format: uuid
+        pfInflowTransactionId:
+          type:
+          - string
+          - 'null'
+          format: uuid
+        amountCents:
+          type: integer
+          minimum: 1
+          maximum: 99999999999
+        pfOriginDocumentIds:
+          type: array
+          items:
+            type: string
+            format: uuid
+          uniqueItems: true
+          maxItems: 1000
+        roleInPeriod:
+          type: string
+          enum:
+          - DESPESA_ORIGEM_NO_PERIODO
+          - REEMBOLSO_PJ_NO_PERIODO
+          - AMBOS_NO_PERIODO
+          - ENTRADA_PF_NO_PERIODO
+      required:
+      - reimbursementLinkId
+      - pfExpenseTransactionId
+      - pjReimbursementTransactionId
+      - pfInflowTransactionId
+      - amountCents
+      - pfOriginDocumentIds
+      - roleInPeriod
+      additionalProperties: false
+    Pending:
+      type: object
+      properties:
+        pendingId:
+          type: string
+          format: uuid
+        transactionId:
+          type: string
+          format: uuid
+        pendingType:
+          type: string
+          enum:
+          - DOCUMENTO_AUSENTE
+          - CLASSIFICACAO_A_ESCLARECER
+          - REEMBOLSO_PF_PENDENTE
+          - DUVIDA_CADASTRADA
+        status:
+          type: string
+          enum:
+          - PENDENTE
+          - JUSTIFICADA
+          - RESOLVIDA
+        description:
+          type: string
+          minLength: 1
+          maxLength: 2000
+        justification:
+          type: string
+          maxLength: 2000
+      required:
+      - pendingId
+      - transactionId
+      - pendingType
+      - status
+      - description
+      - justification
+      additionalProperties: false
+    CashAccount:
+      type: object
+      properties:
+        accountId:
+          type: string
+          format: uuid
+        accountName:
+          type: string
+          minLength: 1
+          maxLength: 200
+        accountType:
+          type: string
+          enum:
+          - PF
+          - PJ
+        inflowCents:
+          type: integer
+          minimum: 0
+          maximum: 9007199254740991
+        outflowCents:
+          type: integer
+          minimum: 0
+          maximum: 9007199254740991
+        netCents:
+          type: integer
+          minimum: -9007199254740991
+          maximum: 9007199254740991
+      required:
+      - accountId
+      - accountName
+      - accountType
+      - inflowCents
+      - outflowCents
+      - netCents
+      additionalProperties: false
+    Summary:
+      type: object
+      properties:
+        cashFlowByAccount:
+          type: array
+          items:
+            $ref: '#/components/schemas/CashAccount'
+          maxItems: 1000
+        businessRevenueTotalCents:
+          type: integer
+          minimum: 0
+          maximum: 9007199254740991
+        businessExpenseTotalCents:
+          type: integer
+          minimum: 0
+          maximum: 9007199254740991
+        reimbursementsSettledInPeriodCents:
+          type: integer
+          minimum: 0
+          maximum: 9007199254740991
+        pendingCount:
+          type: integer
+          minimum: 0
+          maximum: 9007199254740991
+        justifiedCount:
+          type: integer
+          minimum: 0
+          maximum: 9007199254740991
+        categoryTotals:
+          type: array
+          items:
+            $ref: '#/components/schemas/CategoryTotal'
+          maxItems: 1000
+          description: Uma linha por categoria presente em transactions, ordenada
+            por bytes UTF-8 apos NFC e trim. Vazio para previa sem registros.
+      required:
+      - cashFlowByAccount
+      - businessRevenueTotalCents
+      - businessExpenseTotalCents
+      - reimbursementsSettledInPeriodCents
+      - pendingCount
+      - justifiedCount
+      - categoryTotals
+      additionalProperties: false
+    File:
+      type: object
+      properties:
+        path:
+          type: string
+          pattern: ^(resumo\.html|movimentacoes\.csv|anexos/[0-9a-f-]{36}\.(pdf|png|jpg))$
+        role:
+          type: string
+          enum:
+          - RESUMO_HTML
+          - PLANILHA_CSV
+          - ANEXO_DOCUMENTO
+        documentId:
+          type:
+          - string
+          - 'null'
+          format: uuid
+        mimeType:
+          type: string
+          enum:
+          - text/html; charset=utf-8
+          - text/csv; charset=utf-8
+          - application/pdf
+          - image/png
+          - image/jpeg
+        sizeBytes:
+          type: integer
+          minimum: 1
+          maximum: 115343360
+        sha256:
+          type: string
+          pattern: ^[0-9a-f]{64}$
+        inclusionReasons:
+          type: array
+          items:
+            type: string
+            enum:
+            - ARTEFATO_GERADO
+            - VINCULO_DIRETO_PERIODO
+            - CONTEXTO_REEMBOLSO
+          minItems: 1
+          uniqueItems: true
+      required:
+      - path
+      - role
+      - documentId
+      - mimeType
+      - sizeBytes
+      - sha256
+      - inclusionReasons
+      additionalProperties: false
+    Delivery:
+      type: object
+      properties:
+        snapshotId:
+          type: string
+          format: uuid
+        operationId:
+          type: string
+          format: uuid
+        periodMonth:
+          type: string
+          pattern: ^(19[0-9]{2}|[2-9][0-9]{3})-(0[1-9]|1[0-2])$
+        versionNumber:
+          type: integer
+          minimum: 1
+          maximum: 2147483647
+        capturedRevision:
+          type: integer
+          minimum: 1
+          maximum: 9007199254740991
+        rectificationReason:
+          type: string
+          maxLength: 2000
+        capturedAt:
+          type: string
+          format: date-time
+      required:
+      - snapshotId
+      - operationId
+      - periodMonth
+      - versionNumber
+      - capturedRevision
+      - rectificationReason
+      - capturedAt
+      additionalProperties: false
+    Error:
+      type: object
+      properties:
+        code:
+          type: string
+          minLength: 1
+        message:
+          type: string
+          minLength: 1
+        requestId:
+          type: string
+          minLength: 1
+      required:
+      - code
+      - message
+      - requestId
+      additionalProperties: false
+    Account:
+      type: object
+      properties:
+        id: *id001
+        name: &id003
+          type: string
+          minLength: 1
+          maxLength: 200
+        accountType:
+          type: string
+          enum:
+          - PF
+          - PJ
+        active:
+          type: boolean
+      required:
+      - id
+      - name
+      - accountType
+      - active
+      additionalProperties: false
+    Session:
+      type: object
+      properties:
+        userId: *id001
+        displayName: *id003
+        workspace:
+          $ref: '#/components/schemas/Workspace'
+        revision:
+          type: integer
+          minimum: 1
+          maximum: 9007199254740991
+        csrfToken:
+          type: string
+          pattern: ^[0-9a-f]{64}$
+      required:
+      - userId
+      - displayName
+      - workspace
+      - revision
+      - csrfToken
+      additionalProperties: false
+    Operation:
+      type: object
+      properties:
+        id: *id001
+        snapshotId: *id001
+        periodMonth: *id002
+        versionNumber:
+          type: integer
+          minimum: 1
+        capturedRevision:
+          type: integer
+          minimum: 1
+          maximum: 9007199254740991
+        status:
+          type: string
+          enum:
+          - EM_FILA
+          - EM_PROCESSAMENTO
+          - PRONTA
+          - FALHA
+        attemptCount:
+          type: integer
+          minimum: 0
+          maximum: 3
+        errorCode:
+          type:
+          - string
+          - 'null'
+        createdAt:
+          type: string
+          format: date-time
+        completedAt:
+          type:
+          - string
+          - 'null'
+          format: date-time
+      required:
+      - id
+      - snapshotId
+      - periodMonth
+      - versionNumber
+      - capturedRevision
+      - status
+      - attemptCount
+      - errorCode
+      - createdAt
+      - completedAt
+      additionalProperties: false
+    Preview:
+      type: object
+      properties:
+        workspace:
+          $ref: '#/components/schemas/Workspace'
+        periodMonth: *id002
+        revision:
+          type: integer
+          minimum: 1
+          maximum: 9007199254740991
+        summary:
+          $ref: '#/components/schemas/Summary'
+        transactions:
+          type: array
+          items:
+            $ref: '#/components/schemas/Transaction'
+          maxItems: 1000
+        contextTransactions:
+          type: array
+          items:
+            $ref: '#/components/schemas/Transaction'
+          maxItems: 1000
+        reimbursementLinks:
+          type: array
+          items:
+            $ref: '#/components/schemas/Reimbursement'
+          maxItems: 1000
+        pendingItems:
+          type: array
+          items:
+            $ref: '#/components/schemas/Pending'
+          maxItems: 4000
+      required:
+      - workspace
+      - periodMonth
+      - revision
+      - summary
+      - transactions
+      - contextTransactions
+      - reimbursementLinks
+      - pendingItems
+      additionalProperties: false
+    LoginInput:
+      type: object
+      properties:
+        email:
+          type: string
+          format: email
+          maxLength: 254
+        password:
+          type: string
+          minLength: 1
+          maxLength: 1024
+      required:
+      - email
+      - password
+      additionalProperties: false
+    AccountInput:
+      type: object
+      properties:
+        name: *id003
+        accountType:
+          type: string
+          enum:
+          - PF
+          - PJ
+        expectedRevision: *id004
+      required:
+      - name
+      - accountType
+      - expectedRevision
+      additionalProperties: false
+    TransactionInput:
+      type: object
+      properties:
+        accountId: *id001
+        occurredOn:
+          type: string
+          format: date
+          pattern: ^(19[0-9]{2}|[2-9][0-9]{3})-[0-9]{2}-[0-9]{2}$
+        direction:
+          type: string
+          enum:
+          - ENTRADA
+          - SAIDA
+        amountCents:
+          type: integer
+          minimum: 1
+          maximum: 99999999999
+        description:
+          type: string
+          minLength: 1
+          maxLength: 500
+        category:
+          type: string
+          minLength: 1
+          maxLength: 100
+        classification:
+          type: string
+          enum:
+          - RECEITA
+          - DESPESA
+          - TRANSFERENCIA
+          - A_ESCLARECER
+        isPfBusinessExpense:
+          type: boolean
+        explanation: &id005
+          type: string
+          maxLength: 2000
+        expectedRevision: *id004
+      required:
+      - accountId
+      - occurredOn
+      - direction
+      - amountCents
+      - description
+      - category
+      - classification
+      - isPfBusinessExpense
+      - explanation
+      - expectedRevision
+      additionalProperties: false
+    CaptureInput:
+      type: object
+      properties:
+        periodMonth: *id002
+        expectedRevision: *id004
+        rectificationReason: *id005
+      required:
+      - periodMonth
+      - expectedRevision
+      - rectificationReason
+      additionalProperties: false
+    AccountMutation:
+      type: object
+      properties:
+        account:
+          $ref: '#/components/schemas/Account'
+        revision: *id004
+      required:
+      - account
+      - revision
+      additionalProperties: false
+    TransactionMutation:
+      type: object
+      properties:
+        transaction:
+          $ref: '#/components/schemas/Transaction'
+        revision: *id004
+      required:
+      - transaction
+      - revision
+      additionalProperties: false
+    DocumentMutation:
+      type: object
+      properties:
+        documentId: *id001
+        transactionId: *id001
+        sha256:
+          type: string
+          pattern: ^[0-9a-f]{64}$
+        sizeBytes:
+          type: integer
+          minimum: 1
+          maximum: 5242880
+        revision: *id004
+      required:
+      - documentId
+      - transactionId
+      - sha256
+      - sizeBytes
+      - revision
+      additionalProperties: false
+    Manifest:
+      type: object
+      properties:
+        schemaVersion:
+          const: mimir.manifest.v2
+        generatedAt:
+          type: string
+          format: date-time
+        integrityNotice:
+          type: string
+          minLength: 1
+          maxLength: 1000
+        workspace:
+          $ref: '#/components/schemas/Workspace'
+        delivery:
+          $ref: '#/components/schemas/Delivery'
+        summary:
+          $ref: '#/components/schemas/Summary'
+        files:
+          type: array
+          items:
+            $ref: '#/components/schemas/File'
+          minItems: 2
+          maxItems: 1002
+        transactions:
+          type: array
+          items:
+            $ref: '#/components/schemas/Transaction'
+          minItems: 1
+          maxItems: 1000
+        contextTransactions:
+          type: array
+          items:
+            $ref: '#/components/schemas/Transaction'
+          maxItems: 1000
+        reimbursementLinks:
+          type: array
+          items:
+            $ref: '#/components/schemas/Reimbursement'
+          maxItems: 1000
+        pendingItems:
+          type: array
+          items:
+            $ref: '#/components/schemas/Pending'
+          maxItems: 4000
+      required:
+      - schemaVersion
+      - generatedAt
+      - integrityNotice
+      - workspace
+      - delivery
+      - summary
+      - files
+      - transactions
+      - contextTransactions
+      - reimbursementLinks
+      - pendingItems
+      additionalProperties: false
+      title: Manifesto de entrega Mimir Account v2
+      description: Contrato documental harmonizado com RF-09. A versao v2 acrescenta
+        categoryTotals obrigatorio. Nao implica aplicativo implementado.
+    CategoryTotal:
+      type: object
+      properties:
+        category:
+          type: string
+          minLength: 1
+          maxLength: 100
+        inflowCents:
+          type: integer
+          minimum: 0
+          maximum: 9007199254740991
+        outflowCents:
+          type: integer
+          minimum: 0
+          maximum: 9007199254740991
+        netCents:
+          type: integer
+          minimum: -9007199254740991
+          maximum: 9007199254740991
+      required:
+      - category
+      - inflowCents
+      - outflowCents
+      - netCents
+      additionalProperties: false
+      description: Fluxo de uma categoria dos registros principais do mes; inclui
+        transferencias. Regras de soma, unicidade e ordenacao sao semanticas.
+  securitySchemes:
+    sessionCookie:
+      type: apiKey
+      in: cookie
+      name: mimir_session
+  parameters:
+    Csrf:
+      name: X-CSRF-Token
+      in: header
+      required: true
+      schema:
+        type: string
+        pattern: ^[0-9a-f]{64}$
+    Idempotency:
+      name: Idempotency-Key
+      in: header
+      required: true
+      schema:
+        type: string
+        pattern: ^[A-Za-z0-9_-]{16,128}$
+    Cursor:
+      name: cursor
+      in: query
+      required: false
+      schema:
+        type: string
+        maxLength: 500
+    Limit:
+      name: limit
+      in: query
+      required: false
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 200
+        default: 100

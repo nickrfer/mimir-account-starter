@@ -1,0 +1,107 @@
+{
+  "notice": "Vetores de dominio para futura implementacao; nao sao registros completos do manifesto nem experimentos C01-C06. CAT04 exercita normalizacao antes da persistencia.",
+  "vectors": [
+    {
+      "id": "CAT01",
+      "purpose": "Previa vazia",
+      "transactions": [],
+      "contextTransactions": [],
+      "expected": []
+    },
+    {
+      "id": "CAT02",
+      "purpose": "Somar mesma categoria em contas distintas e excluir contexto",
+      "transactions": [
+        {
+          "accountId": "PF",
+          "categoryOriginal": "SERVICOS",
+          "direction": "ENTRADA",
+          "amountCents": 100
+        },
+        {
+          "accountId": "PJ",
+          "categoryOriginal": "SERVICOS",
+          "direction": "SAIDA",
+          "amountCents": 40
+        }
+      ],
+      "contextTransactions": [
+        {
+          "accountId": "PJ",
+          "categoryOriginal": "OUTRO_MES",
+          "direction": "ENTRADA",
+          "amountCents": 999
+        }
+      ],
+      "expected": [
+        {
+          "category": "SERVICOS",
+          "inflowCents": 100,
+          "outflowCents": 40,
+          "netCents": 60
+        }
+      ]
+    },
+    {
+      "id": "CAT03",
+      "purpose": "Transferencia com saldo zero permanece na lista",
+      "transactions": [
+        {
+          "categoryOriginal": "TRANSFERENCIAS",
+          "direction": "ENTRADA",
+          "amountCents": 10000
+        },
+        {
+          "categoryOriginal": "TRANSFERENCIAS",
+          "direction": "SAIDA",
+          "amountCents": 10000
+        }
+      ],
+      "contextTransactions": [],
+      "expected": [
+        {
+          "category": "TRANSFERENCIAS",
+          "inflowCents": 10000,
+          "outflowCents": 10000,
+          "netCents": 0
+        }
+      ]
+    },
+    {
+      "id": "CAT04",
+      "purpose": "NFC e trim; distinguir caixa; ordenacao por bytes UTF-8",
+      "transactions": [
+        {
+          "categoryOriginal": "  CAFÉ ",
+          "direction": "SAIDA",
+          "amountCents": 20
+        },
+        {
+          "categoryOriginal": "CAFÉ",
+          "direction": "ENTRADA",
+          "amountCents": 5
+        },
+        {
+          "categoryOriginal": "café",
+          "direction": "SAIDA",
+          "amountCents": 2
+        }
+      ],
+      "contextTransactions": [],
+      "expected": [
+        {
+          "category": "CAFÉ",
+          "inflowCents": 5,
+          "outflowCents": 20,
+          "netCents": -15
+        },
+        {
+          "category": "café",
+          "inflowCents": 0,
+          "outflowCents": 2,
+          "netCents": -2
+        }
+      ]
+    }
+  ]
+}

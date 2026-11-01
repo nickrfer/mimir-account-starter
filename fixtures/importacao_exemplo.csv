@@ -1,0 +1,3 @@
+external_id,occurred_on,direction,amount_cents,description,category,classification,is_pf_business_expense,explanation
+CSV-001,2026-10-08,SAIDA,2500,Despesa exemplo A,SERVICOS,DESPESA,false,Sintetico
+CSV-002,2026-10-08,SAIDA,2500,Despesa exemplo A,SERVICOS,DESPESA,false,Sintetico

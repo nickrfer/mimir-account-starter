@@ -1,0 +1,30 @@
+{
+  "schemaVersion": "mimir.csv.import.v1",
+  "accountId": "00000000-0000-4000-8000-000000000202",
+  "sourceCode": "FONTE_EXEMPLO",
+  "periodMonth": "2026-10",
+  "rows": [
+    {
+      "external_id": "CSV-001",
+      "occurred_on": "2026-10-08",
+      "direction": "SAIDA",
+      "amount_cents": 2500,
+      "description": "Despesa exemplo A",
+      "category": "SERVICOS",
+      "classification": "DESPESA",
+      "is_pf_business_expense": false,
+      "explanation": "Sintetico"
+    },
+    {
+      "external_id": "CSV-002",
+      "occurred_on": "2026-10-08",
+      "direction": "SAIDA",
+      "amount_cents": 2500,
+      "description": "Despesa exemplo A",
+      "category": "SERVICOS",
+      "classification": "DESPESA",
+      "is_pf_business_expense": false,
+      "explanation": "Sintetico"
+    }
+  ]
+}

@@ -1,0 +1,59 @@
+{
+  "notice": "Vetores documentais de referencia; nao sao resultados de testes do aplicativo.",
+  "vectors": [
+    {
+      "case": "captura_inicial",
+      "normalizedArray": [
+        1,
+        "2026-10",
+        4,
+        ""
+      ],
+      "canonicalUtf8": "[1,\"2026-10\",4,\"\"]",
+      "sha256": "108b5be518acd5c04c75e4f01e156dca45249f1a22cdf6dca093d07fe38a0b0a"
+    },
+    {
+      "case": "captura_motivo_normalizado",
+      "normalizedArray": [
+        1,
+        "2026-10",
+        5,
+        "Inclusão do vínculo."
+      ],
+      "canonicalUtf8": "[1,\"2026-10\",5,\"Inclusão do vínculo.\"]",
+      "sha256": "df10763159bda47232f01ea4966bd7d4933dcff11e6d62644e1011e56f44c649"
+    },
+    {
+      "case": "csv_separador_na_descricao",
+      "normalizedArray": [
+        1,
+        "2026-10-10",
+        "SAIDA",
+        100,
+        "a|b",
+        "c",
+        "DESPESA",
+        false,
+        ""
+      ],
+      "canonicalUtf8": "[1,\"2026-10-10\",\"SAIDA\",100,\"a|b\",\"c\",\"DESPESA\",false,\"\"]",
+      "sha256": "2be2281a0a4894d3e20c9d1e688c2f51084788f8ce9b1aace8247022cf3f7b99"
+    },
+    {
+      "case": "csv_separador_na_categoria",
+      "normalizedArray": [
+        1,
+        "2026-10-10",
+        "SAIDA",
+        100,
+        "a",
+        "b|c",
+        "DESPESA",
+        false,
+        ""
+      ],
+      "canonicalUtf8": "[1,\"2026-10-10\",\"SAIDA\",100,\"a\",\"b|c\",\"DESPESA\",false,\"\"]",
+      "sha256": "a69ebc0208b67260b233a16feedff561db16315857f00b18e9e02b93e9911c72"
+    }
+  ]
+}
