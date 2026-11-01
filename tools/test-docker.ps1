@@ -68,7 +68,7 @@ try {
     $uid = if ($env:LOCAL_UID) { $env:LOCAL_UID } else { '1000' }
     $gid = if ($env:LOCAL_GID) { $env:LOCAL_GID } else { '1000' }
     Invoke-Step 'vite-proxy-hmr' @('run', '--rm', '--no-deps', '--user', "${uid}:${gid}", '-v', "${root}/apps/web/src:/hmr", '--entrypoint', 'node', 'admin', 'tools/checks/probe.mjs', 'dev')
-    Invoke-Step 'verifier-not-implemented' @('run', '--rm', '--no-deps', 'verifier') 2
+    Invoke-Step 'verifier-package' @('run', '--rm', '--no-deps', 'verifier', '/probe-state/verified-package', '/probe-state/verified.manifesto.json')
     $passed = $true
 } catch {
     $failureStage = $script:stage

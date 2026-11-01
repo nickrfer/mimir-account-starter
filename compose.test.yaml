@@ -6,5 +6,7 @@ services:
   admin:
     networks: [database, frontend]
     volumes: [auth_probe:/probe-state]
+  verifier:
+    volumes: [auth_probe:/probe-state:ro]
 volumes:
   auth_probe:

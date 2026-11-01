@@ -5,7 +5,7 @@ import {once} from 'node:events';
 import {fileURLToPath} from 'node:url';
 import {mkdtemp,mkdir,rm,readdir,writeFile} from 'node:fs/promises';
 import {tmpdir} from 'node:os';
-import {join} from 'node:path';
+import {join,dirname} from 'node:path';
 import {crc32,inflateRawSync} from 'node:zlib';
 import pg from 'pg';
 import {createOwner} from '../../tools/admin/owners.mjs';
@@ -16,6 +16,7 @@ import {PostgresPreview} from '../../apps/api/dist/adapters/postgres-preview.js'
 import {PostgresDeliveries} from '../../apps/api/dist/adapters/postgres-deliveries.js';
 import {AuthenticationService} from '../../apps/api/dist/auth/service.js';
 import {createApp} from '../../apps/api/dist/server.js';
+import {verifyDeliveryPackage} from '../../packages/verifier/dist/verifier.js';
 
 const sha=bytes=>createHash('sha256').update(bytes).digest('hex');
 const sleep=ms=>new Promise(r=>setTimeout(r,ms));
@@ -94,6 +95,13 @@ test('I08 executor: leases, fencing, publication and downloads on real PostgreSQ
     assert.equal(manifest.delivery.snapshotId,op.snapshotId);assert.equal(manifest.delivery.operationId,op.id);
     for(const file of manifest.files){assert.equal(sha(entries.get(file.path)),file.sha256);assert.equal(entries.get(file.path).length,file.sizeBytes);}
     assert.match(entries.get('movimentacoes.csv').toString('utf8'),/,1250,/);
+    const verifyRoot=await mkdtemp(join(tmpdir(),'mimir-i09-exec-')),extractedDir=join(verifyRoot,'pkg'),refManifest=join(verifyRoot,'ref.manifesto.json');
+    try{
+      for(const [name,data] of entries){const dest=join(extractedDir,name);await mkdir(dirname(dest),{recursive:true});await writeFile(dest,data);}
+      await writeFile(refManifest,manifestBytes);
+      const verified=await verifyDeliveryPackage(extractedDir,refManifest);
+      assert.equal(verified.ok,true,verified.message);assert.equal(verified.exitCode,0);assert.equal(verified.code,'VERIFIED');assert.equal(verified.counts?.mainTransactions,1);
+    }finally{await rm(verifyRoot,{recursive:true,force:true});}
     for(const kind of ['package','manifest']){
       assert.equal((await fetch(base+`/api/v1/deliveries/${op.snapshotId}/${kind}`,{headers:headers(b)})).status,404);
       assert.equal((await fetch(base+`/api/v1/deliveries/${op.snapshotId}/${kind}`)).status,401);

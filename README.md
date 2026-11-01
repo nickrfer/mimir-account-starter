@@ -1,6 +1,6 @@
 # Mimir Account
 
-PoC de organização financeira/documental mensal. I01–I08 implementados: fundação Docker, provisionamento/sessões, contas PF/PJ, lançamentos manuais, upload documental imutável, prévia mensal consistente, captura imutável de snapshot e executor/empacotamento/publicação. Primeira jornada financeira aguarda verificador CLI (I09) e integração de interface (I10); IA permanece somente planejada. Resultados e limites de validação em [STATUS](docs/STATUS.md).
+PoC de organização financeira/documental mensal. I01–I09 implementados: fundação Docker, provisionamento/sessões, contas PF/PJ, lançamentos manuais, upload documental imutável, prévia mensal consistente, captura imutável de snapshot, executor/empacotamento/publicação e verificador CLI independente. Primeira jornada financeira aguarda apenas integração de interface (I10); IA permanece somente planejada. Resultados e limites de validação em [STATUS](docs/STATUS.md).
 
 ## Fluxo principal: Docker e Compose
 
@@ -78,6 +78,12 @@ Não existem vínculos de reembolso implementados: `contextTransactions` e `reim
 - `DeliveryExecutor` (processo da API): polling a cada 2 s, 1 trabalho por vez, lease de 30 s renovado a cada 5 s, token monotônico (`fencing_token`), até 3 tentativas (retries em 2 s e 5 s; falha terminal ou varredura de lease expirado na 3ª tentativa). Empacota `resumo.html`, `movimentacoes.csv`, `manifesto.json` (`mimir.manifest.v2`) e `anexos/{documentId}.{ext}` exclusivamente a partir do snapshot imutável, em `/tmp/mimir-delivery` (`tmpfs`), e publica em `delivery_packages` + `PRONTA` no mesmo commit.
 - `GET /api/v1/deliveries/{snapshotId}/package` e `GET /api/v1/deliveries/{snapshotId}/manifest`: retornam `409 DELIVERY_NOT_READY` enquanto não pronta e servem os bytes exatos publicados quando `PRONTA`. Detalhes em [I07](docs/implementation/I07.md), [I08](docs/implementation/I08.md) e [evidência I08](docs/evidence/I08.md).
 
+## Verificador CLI independente — I09
+
+- `node packages/verifier/dist/index.js <diretorio-extraido> <manifesto-externo.json>` (ou `--package-dir` / `--reference-manifest`): valida offline pacotes extraídos contra um manifesto de referência externo (`mimir.manifest.v2`).
+- Retorna código `0` para pacote íntegro e válido, `1` para qualquer violação de integridade/schema/relações/cálculos (recalculando `cashFlowByAccount`, `categoryTotals`, `businessRevenueTotalCents`, `businessExpenseTotalCents`, `reimbursementsSettledInPeriodCents`, `pendingCount`, `justifiedCount`, tamanhos/SHA-256, ausência de arquivos extras/faltantes/symlinks, `movimentacoes.csv` v1 e ausência de conteúdo ativo em `resumo.html`) e `2` para argumentos inválidos ou autorreferência ao `manifesto.json` interno.
+- Executado também no contêiner isolado `verifier` (`network_mode: none`, `read_only: true`) sobre o pacote real gerado pela API/Executor na etapa `verifier-package` da suíte Docker. Detalhes em [I09](docs/implementation/I09.md) e [evidência I09](docs/evidence/I09.md).
+
 ## Logs e encerramento
 
 ```sh
@@ -104,7 +110,7 @@ sh tools/test-docker.sh
 
 Scripts usam Docker CLI do host, nunca Docker/socket dentro do contêiner. Criam projeto/configuração/volume novos mimir-docker-*, usam portas aleatórias no loopback e não alteram projeto de referência. Shell Linux define UID/GID automaticamente.
 
-Cada execução compila imagens e roda **todos os testes unitários e PostgreSQL dentro do contêiner**. Confere instalação limpa, migração repetida/checksum/rollback, privilégios, FKs, BIGINT/DATE, SPA/health/readiness, ambiente real da API sem credenciais/arquivos administrativos, banco parado, recriação de db e API com dois documentos sintéticos preservados, Vite/proxy e mensagem HMR após alterar módulo temporário. Confere também código 2 atual do CLI não implementado.
+Cada execução compila imagens e roda **todos os testes unitários e PostgreSQL dentro do contêiner**. Confere instalação limpa, migração repetida/checksum/rollback, privilégios, FKs, BIGINT/DATE, SPA/health/readiness, ambiente real da API sem credenciais/arquivos administrativos, banco parado, recriação de db e API com dois documentos sintéticos preservados, Vite/proxy e mensagem HMR após alterar módulo temporário. Confere também a verificação do pacote real publicado pelo contêiner `verifier` sem rede (`verifier-package`).
 
 Ao terminar, encerra somente serviços próprios; **volumes são preservados**, inclusive em falhas. Log detalhado fica em .local/<projeto>/run.log e resumo sanitizado em docs/evidence/docker-*.json. Não compartilhe configuração ou log local sem revisão. Volumes antigos podem ser removidos manualmente após inspeção; suíte não os remove.
 
@@ -114,7 +120,7 @@ Somente testes unitários, sem iniciar banco:
 docker compose run --build --rm --no-deps --entrypoint node admin tools/checks/tests.mjs unit
 ```
 
-Resultado atual: testes unitários, PostgreSQL/HTTP e probes na API real passaram em Docker Windows; contagens/resultados em [STATUS](docs/STATUS.md) e [evidência I08](docs/evidence/I08.md). Sessão mantém expiração absoluta e conta/lançamento/documento/snapshot/pacote permanecem após recriar API/banco. Execução integral POSIX em host Linux ainda não realizada e não bloqueia Windows. Evidências anteriores preservadas.
+Resultado atual: testes unitários, PostgreSQL/HTTP e probes na API real passaram em Docker Windows; contagens/resultados em [STATUS](docs/STATUS.md) e [evidência I09](docs/evidence/I09.md). Sessão mantém expiração absoluta e conta/lançamento/documento/snapshot/pacote permanecem após recriar API/banco. Execução integral POSIX em host Linux ainda não realizada e não bloqueia Windows. Evidências anteriores preservadas.
 
 ## Desenvolvimento com Vite em contêiner
 
@@ -136,10 +142,10 @@ docker compose --profile dev down
 ## CLI como tarefa temporária
 
 ```sh
-docker compose run --build --rm --no-deps verifier
+docker compose run --build --rm --no-deps -v /caminho/pacote:/pkg:ro -v /caminho/referencia.manifesto.json:/ref.json:ro verifier /pkg /ref.json
 ```
 
-Hoje termina com **código 2**: estrutura compilável, nenhuma verificação executada. Serviço não tem rede nem credenciais. RF-09/RF-14 ficam para incremento posterior; o comando já dispensa Node no host.
+Sem argumentos termina com **código 2** (erro de uso); com diretório extraído e manifesto externo confiável retorna **0** quando íntegro ou **1** em caso de adulteração/inconsistência. Serviço não tem rede nem credenciais; dispensa Node no host.
 
 ## Alternativa com Node no host
 
