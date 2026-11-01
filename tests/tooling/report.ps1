@@ -19,7 +19,11 @@ $summary.Remove('completedStages');$summary.passed=$true;$summary.failureStage=$
 $result=Get-Content -LiteralPath (Join-Path $directory 'qa.json') -Raw|ConvertFrom-Json
 if(@($result.scenarios|Where-Object {$_.result -ne 'nao-executado'}).Count){throw 'Rodada antiga ganhou cobertura presumida'}
 [IO.File]::WriteAllBytes((Join-Path $directory 'screenshots/fixture.png'),[byte[]]@(0)) # Fixture do gerador, nao screenshot capturado/revisado.
-$review=@(@{file='fixture.png';scenario='QA-UI-TEST';caption='<script>untrusted</script>';reviewed=$true;synthetic=$true})
+[IO.File]::WriteAllBytes((Join-Path $directory 'screenshots/fixture2.png'),[byte[]]@(0))
+$review=@(
+    @{file='fixture.png';scenario='QA-UI-TEST';caption='<script>untrusted</script>';reviewed=$true;synthetic=$true},
+    @{file='fixture2.png';scenario='QA-UI-TEST';caption='segunda captura';reviewed=$true;synthetic=$true}
+)
 [IO.File]::WriteAllText((Join-Path $directory 'screenshots/review.json'),(ConvertTo-Json -InputObject $review),[Text.UTF8Encoding]::new($false))
 & (Join-Path $fixture 'tools/qa-report.ps1') -Project $project | Out-Null
 $html=[IO.File]::ReadAllText((Join-Path $directory 'qa.html'))

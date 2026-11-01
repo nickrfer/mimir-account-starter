@@ -1,6 +1,6 @@
 # Mimir Account
 
-PoC de organização financeira/documental mensal. I01–I09 implementados: fundação Docker, provisionamento/sessões, contas PF/PJ, lançamentos manuais, upload documental imutável, prévia mensal consistente, captura imutável de snapshot, executor/empacotamento/publicação e verificador CLI independente. Primeira jornada financeira aguarda apenas integração de interface (I10); IA permanece somente planejada. Resultados e limites de validação em [STATUS](docs/STATUS.md).
+PoC de organização financeira/documental mensal. **I01–I10 implementados (primeira jornada funcional completa)**: fundação Docker, provisionamento/sessões, contas PF/PJ, lançamentos manuais, upload documental imutável, prévia mensal consistente, captura imutável de snapshot, executor/empacotamento/publicação, verificador CLI independente e integração da interface web. IA permanece somente planejada. Resultados e limites de validação em [STATUS](docs/STATUS.md).
 
 ## Fluxo principal: Docker e Compose
 
@@ -83,6 +83,11 @@ Não existem vínculos de reembolso implementados: `contextTransactions` e `reim
 - `node packages/verifier/dist/index.js <diretorio-extraido> <manifesto-externo.json>` (ou `--package-dir` / `--reference-manifest`): valida offline pacotes extraídos contra um manifesto de referência externo (`mimir.manifest.v2`).
 - Retorna código `0` para pacote íntegro e válido, `1` para qualquer violação de integridade/schema/relações/cálculos (recalculando `cashFlowByAccount`, `categoryTotals`, `businessRevenueTotalCents`, `businessExpenseTotalCents`, `reimbursementsSettledInPeriodCents`, `pendingCount`, `justifiedCount`, tamanhos/SHA-256, ausência de arquivos extras/faltantes/symlinks, `movimentacoes.csv` v1 e ausência de conteúdo ativo em `resumo.html`) e `2` para argumentos inválidos ou autorreferência ao `manifesto.json` interno.
 - Executado também no contêiner isolado `verifier` (`network_mode: none`, `read_only: true`) sobre o pacote real gerado pela API/Executor na etapa `verifier-package` da suíte Docker. Detalhes em [I09](docs/implementation/I09.md) e [evidência I09](docs/evidence/I09.md).
+
+## Interface web da primeira jornada — I10
+
+- SPA React 19 + TypeScript (`apps/web`) servida pela API em `/` e via Vite em `127.0.0.1:5173` (perfil `dev`), respeitando `Content-Security-Policy: default-src 'self'`.
+- Cobre toda a primeira jornada funcional: login/logout (`POST/GET/DELETE /api/v1/session`), contas PF/PJ (`GET/POST /api/v1/accounts`), lançamentos manuais com conversão determinística para centavos (`POST /api/v1/transactions`), upload documental imutável (`POST /api/v1/transactions/{id}/documents`), prévia mensal consistente (`GET /api/v1/periods/{month}/preview`), captura idempotente (`POST /api/v1/deliveries`), polling da operação (`GET /api/v1/operations/{id}`), histórico (`GET /api/v1/periods/{month}/deliveries`), downloads de pacote ZIP e manifesto v2 (`/package` e `/manifest`) e comando pronto para o verificador CLI (`@mimir/verifier`). Detalhes em [I10](docs/implementation/I10.md) e [evidência I10](docs/evidence/I10.md).
 
 ## Logs e encerramento
 

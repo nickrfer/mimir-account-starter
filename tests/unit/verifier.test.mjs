@@ -426,3 +426,98 @@ test('I09 verifier: detects missing/extra files, tampered hashes/sizes, symlinks
     await rm(tempRoot, { recursive: true, force: true });
   }
 });
+
+test('I09 verifier: rejects event handlers in an otherwise hash-valid summary HTML', async () => {
+  const mod = await import('../../packages/verifier/dist/verifier.js');
+  const tempRoot = await mkdtemp(join(tmpdir(), 'mimir-i09-html-event-'));
+  try {
+    const attack = await prepareMutatedFixture('outubro_v1', tempRoot, 'html-event', null, async (pkgDir, manifest) => {
+      const htmlPath = join(pkgDir, 'resumo.html');
+      const html = Buffer.from((await readFile(htmlPath, 'utf8')).replace('<h1>', '<h1 onmouseover="alert(1)">'), 'utf8');
+      await writeFile(htmlPath, html);
+      const entry = manifest.files.find((file) => file.path === 'resumo.html');
+      entry.sizeBytes = html.length;
+      entry.sha256 = sha256(html);
+    });
+    const result = await mod.verifyDeliveryPackage(attack.pkgDir, attack.refPath);
+    assert.equal(result.exitCode, 1);
+    assert.equal(result.code, 'ACTIVE_HTML_CONTENT');
+  } finally {
+    await rm(tempRoot, { recursive: true, force: true });
+  }
+});
+
+test('I09 verifier: rejects non-UTF-8 bytes in a hash-valid summary HTML', async () => {
+  const mod = await import('../../packages/verifier/dist/verifier.js');
+  const tempRoot = await mkdtemp(join(tmpdir(), 'mimir-i09-html-utf8-'));
+  try {
+    const attack = await prepareMutatedFixture('outubro_v1', tempRoot, 'html-utf8', null, async (pkgDir, manifest) => {
+      const htmlPath = join(pkgDir, 'resumo.html');
+      const html = Buffer.from(await readFile(htmlPath));
+      const textPosition = html.indexOf('Empresa Exemplo Sintetico');
+      assert.ok(textPosition > 0);
+      html[textPosition] = 0xff;
+      await writeFile(htmlPath, html);
+      const entry = manifest.files.find((file) => file.path === 'resumo.html');
+      entry.sha256 = sha256(html);
+    });
+    const result = await mod.verifyDeliveryPackage(attack.pkgDir, attack.refPath);
+    assert.equal(result.exitCode, 1);
+    assert.equal(result.code, 'INVALID_UTF8');
+  } finally {
+    await rm(tempRoot, { recursive: true, force: true });
+  }
+});
+
+test('I09 verifier: rejects escaped and commented CSS imports even without a CSP meta tag', async () => {
+  const mod = await import('../../packages/verifier/dist/verifier.js');
+  const tempRoot = await mkdtemp(join(tmpdir(), 'mimir-i09-css-import-'));
+  try {
+    for (const [label, css] of [
+      ['escaped', '@\\69mport u\\72l(https://example.invalid/remote.css);'],
+      ['commented', '@im/**/port u\\72l(https://example.invalid/remote.css);'],
+    ]) {
+      const attack = await prepareMutatedFixture('outubro_v1', tempRoot, label, null, async (pkgDir, manifest) => {
+        const htmlPath = join(pkgDir, 'resumo.html');
+        const original = await readFile(htmlPath, 'utf8');
+        assert.ok(!original.includes('Content-Security-Policy'));
+        const html = Buffer.from(original.replace('</style>', `${css}</style>`), 'utf8');
+        await writeFile(htmlPath, html);
+        const entry = manifest.files.find((file) => file.path === 'resumo.html');
+        entry.sizeBytes = html.length;
+        entry.sha256 = sha256(html);
+      });
+      const result = await mod.verifyDeliveryPackage(attack.pkgDir, attack.refPath);
+      assert.equal(result.exitCode, 1, label);
+      assert.equal(result.code, 'ACTIVE_HTML_CONTENT', label);
+    }
+  } finally {
+    await rm(tempRoot, { recursive: true, force: true });
+  }
+});
+
+test('I09 verifier: rejects unbalanced style tags and CSS at end of HTML', async () => {
+  const mod = await import('../../packages/verifier/dist/verifier.js');
+  const tempRoot = await mkdtemp(join(tmpdir(), 'mimir-i09-unbalanced-style-'));
+  try {
+    for (const [label, htmlText] of [
+      ['unterminated', '<!doctype html><html lang="pt-BR"><style>@import "https://example.invalid/x.css";'],
+      ['unmatched-close', '<!doctype html><html lang="pt-BR"></style></html>'],
+      ['nested', '<!doctype html><html lang="pt-BR"><style><style>body{color:#111}</style></style></html>'],
+    ]) {
+      const attack = await prepareMutatedFixture('outubro_v1', tempRoot, label, null, async (pkgDir, manifest) => {
+        const htmlPath = join(pkgDir, 'resumo.html');
+        const html = Buffer.from(htmlText, 'utf8');
+        await writeFile(htmlPath, html);
+        const entry = manifest.files.find((file) => file.path === 'resumo.html');
+        entry.sizeBytes = html.length;
+        entry.sha256 = sha256(html);
+      });
+      const result = await mod.verifyDeliveryPackage(attack.pkgDir, attack.refPath);
+      assert.equal(result.exitCode, 1, label);
+      assert.equal(result.code, 'ACTIVE_HTML_CONTENT', label);
+    }
+  } finally {
+    await rm(tempRoot, { recursive: true, force: true });
+  }
+});

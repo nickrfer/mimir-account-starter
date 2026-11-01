@@ -49,7 +49,16 @@ try {
   if (mode === 'available') {
     await eventually(() => http('http://api:3000', '/ready', 200));
     await http('http://api:3000', '/health', 200);
-    assert.match(await http('http://api:3000', '/', 200), /Mimir Account/);
+    const indexHtml = await http('http://api:3000', '/', 200);
+    assert.match(indexHtml, /Mimir Account/);
+    const jsAsset = /src="(\/assets\/[^"]+\.js)"/.exec(indexHtml)?.[1];
+    const cssAsset = /href="(\/assets\/[^"]+\.css)"/.exec(indexHtml)?.[1];
+    assert.ok(jsAsset && cssAsset, 'SPA asset paths missing in index.html');
+    const jsBundle = await http('http://api:3000', jsAsset, 200);
+    await http('http://api:3000', cssAsset, 200);
+    for (const route of ['/api/v1/session', '/api/v1/accounts', '/api/v1/transactions', '/api/v1/deliveries']) {
+      assert.ok(jsBundle.includes(route), `SPA bundle missing ${route}`);
+    }
   } else if (mode === 'unavailable') {
     await http('http://api:3000', '/health', 200);
     await eventually(() => http('http://api:3000', '/ready', 503));
