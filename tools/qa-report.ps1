@@ -33,6 +33,10 @@ if($log.Contains('I08 packaging: CSV neutralisation')){
     $cases+=@{id='QA-I08-PKG';title='Empacotamento: CSV, HTML, manifesto e ZIP';stage='unit-and-postgresql';
         proof='Testes unitarios I08 com dados sinteticos: neutralizacao de formula no CSV, escape do HTML sem conteudo ativo, manifesto v2 com hashes dos arquivos, ZIP legivel com CRC, falha por documento adulterado, aborto, limite de manifesto e de ZIP. Resultado observado pela suite desta rodada.'}
 }
+if($log.Contains('I09 verifier: accepts the 3 synthetic v2 fixtures')){
+    $cases+=@{id='QA-I09';title='Verificador CLI independente: fixtures v2, controles semanticos e pacote real';stage='verifier-package';
+        proof='Fixtures sinteticas v2 (outubro_v1, novembro_v1, outubro_v2) + ORACULOS_DOS_EXEMPLOS + pacote real publicado pelo executor em PostgreSQL: esperado aceite (codigo 0) dos 3 casos oficiais e do pacote real extraido no container isolado verifier (network_mode: none, read_only: true), erro de uso/autorreferencia (codigo 2), e rejeicao deterministica (codigo 1) para divergencia de bytes do manifesto, schemaVersion v1, violacoes de schema, todos os 18 controles de categoryTotals/summary, 14 controles relacionais, arquivos faltantes/extras/adulterados, symlinks, HTML ativo e adulteracao de CSV, sem vazar descricoes privadas. Resultado observado nesta rodada; detalhes em docs/evidence/I09.md.'}
+}
 $hasStages=$null -ne $summary.PSObject.Properties['completedStages']
 foreach($case in $cases){
     $case.result=if($hasStages -and $summary.completedStages -contains $case.stage){'passou'}elseif($summary.failureStage -eq $case.stage){'falhou'}else{'nao-executado'}

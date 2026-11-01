@@ -27,7 +27,7 @@ export class PostgresDeliveries implements DeliveriesPort {
   private readonly bulk: pg.Pool;
   constructor(databaseUrl: string) {
     this.pool = new pg.Pool({ connectionString: databaseUrl, max: 4, types: postgresTypes, application_name: 'mimir-deliveries',
-      connectionTimeoutMillis: 1500, query_timeout: 1500, idleTimeoutMillis: 10000, options: '-c statement_timeout=1500 -c search_path=mimir,pg_catalog' });
+      connectionTimeoutMillis: 1500, query_timeout: 5000, idleTimeoutMillis: 10000, options: '-c statement_timeout=5000 -c search_path=mimir,pg_catalog' });
     this.pool.on('error', () => {});
     this.bulk = new pg.Pool({ connectionString: databaseUrl, max: 2, types: postgresTypes, application_name: 'mimir-downloads',
       connectionTimeoutMillis: 1500, query_timeout: 60000, idleTimeoutMillis: 10000, options: '-c statement_timeout=60000 -c search_path=mimir,pg_catalog' });

@@ -1,8 +1,19 @@
 import { spawnSync } from 'node:child_process';
 import { randomBytes, randomUUID, createHash } from 'node:crypto';
-import { readFile, writeFile, unlink } from 'node:fs/promises';
+import { readFile, writeFile, unlink, mkdir, rm } from 'node:fs/promises';
+import { dirname, join } from 'node:path';
+import { crc32, inflateRawSync } from 'node:zlib';
 import assert from 'node:assert/strict';
 import pg from 'pg';
+function extractZipBuffer(bytes){
+  const end=bytes.length-22,count=bytes.readUInt16LE(end+10);let at=bytes.readUInt32LE(end+16);const entries=new Map();
+  for(let i=0;i<count;i++){
+    const method=bytes.readUInt16LE(at+10),crc=bytes.readUInt32LE(at+16),csize=bytes.readUInt32LE(at+20),nameLength=bytes.readUInt16LE(at+28),offset=bytes.readUInt32LE(at+42);
+    const name=bytes.subarray(at+46,at+46+nameLength).toString('utf8'),start=offset+30+bytes.readUInt16LE(offset+26)+bytes.readUInt16LE(offset+28),raw=bytes.subarray(start,start+csize);
+    const data=method===8?inflateRawSync(raw):raw;assert.equal(crc32(data),crc);entries.set(name,data);at+=46+nameLength;
+  }
+  return entries;
+}
 async function checkPreview(cookie,state){
   const response=await fetch('http://api:3000/api/v1/periods/2026-10/preview',{headers:{Cookie:cookie},signal:AbortSignal.timeout(5000)});
   assert.equal(response.status,200);assert.equal(response.headers.get('cache-control'),'no-store');
@@ -51,6 +62,12 @@ async function checkDelivery(state,first){
   assert.equal(manifest.schemaVersion,'mimir.manifest.v2');assert.equal(manifest.delivery.snapshotId,operation.snapshotId);assert.equal(manifest.delivery.operationId,operation.id);
   assert.equal(manifest.transactions[0].transactionId,state.transactionId);assert.equal(manifest.summary.businessExpenseTotalCents,1250);
   const attachment=manifest.files.find(file=>file.documentId===state.documentId);assert.ok(attachment);assert.equal(attachment.sha256,state.documentHash);assert.deepEqual(manifest.files.map(file=>file.path).sort(),[`anexos/${state.documentId}.pdf`,'movimentacoes.csv','resumo.html']);
+  const verifiedDir='/probe-state/verified-package',verifiedManifest='/probe-state/verified.manifesto.json';
+  await rm(verifiedDir,{recursive:true,force:true});await mkdir(verifiedDir,{recursive:true});
+  for(const [name,data] of extractZipBuffer(zip)){const dest=join(verifiedDir,name);await mkdir(dirname(dest),{recursive:true});await writeFile(dest,data);}
+  await writeFile(verifiedManifest,manifestBytes);
+  const cli=spawnSync(process.execPath,['packages/verifier/dist/index.js',verifiedDir,verifiedManifest],{encoding:'utf8'});
+  assert.equal(cli.status,0,cli.stderr||cli.stdout);assert.match(cli.stdout,/^VERIFIED:/);
   if(first){state.readyOperation=operation;state.zipHash=zipHash;state.manifestHash=manifestHash;}
   else{assert.equal(zipHash,state.zipHash);assert.equal(manifestHash,state.manifestHash);}
   const session=await fetch('http://api:3000/api/v1/session',{headers:{Cookie:state.cookie},signal:AbortSignal.timeout(5000)});

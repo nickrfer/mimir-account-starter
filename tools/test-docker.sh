@@ -68,11 +68,4 @@ step session-persisted-after-recreate compose run --rm --no-deps --entrypoint no
 step volume-preserved compose run --rm --no-deps --entrypoint node admin tools/checks/probe.mjs persisted
 step vite-start compose --profile dev up -d dev-web
 step vite-proxy-hmr compose run --rm --no-deps --user "$LOCAL_UID:$LOCAL_GID" -v "$root/apps/web/src:/hmr" --entrypoint node admin tools/checks/probe.mjs dev
-stage=verifier-not-implemented
-set +e
-compose run --rm --no-deps verifier >"$last" 2>&1
-code=$?
-set -e
-cat "$last" >>"$log"
-[ "$code" -eq 2 ] || exit 1
-steps=$((steps+1)); printf 'PASS %s\n' "$stage"
+step verifier-package compose run --rm --no-deps verifier /probe-state/verified-package /probe-state/verified.manifesto.json
