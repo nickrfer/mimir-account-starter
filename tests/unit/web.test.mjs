@@ -96,7 +96,9 @@ test('I10 web: next action follows actual month state and never calls an old del
   const documentPending = { transactionId: 'tx-1', pendingType: 'DOCUMENTO_AUSENTE', status: 'PENDENTE' };
   const pfPending = { transactionId: 'tx-1', pendingType: 'REEMBOLSO_PF_PENDENTE', status: 'PENDENTE' };
   assert.deepEqual(nextMonthAction({ ...base, preview: { ...base.preview, pendingItems: [pfPending, documentPending] } }), { kind: 'document', transactionId: 'tx-1' });
-  assert.deepEqual(nextMonthAction({ ...base, preview: { ...base.preview, pendingItems: [pfPending] } }), { kind: 'review' });
+  assert.deepEqual(nextMonthAction({ ...base, preview: { ...base.preview, pendingItems: [pfPending] } }), { kind: 'reimbursement', transactionId: 'tx-1' });
+  const doubt = { transactionId: 'tx-1', pendingType: 'DUVIDA_CADASTRADA', status: 'PENDENTE' };
+  assert.deepEqual(nextMonthAction({ ...base, preview: { ...base.preview, pendingItems: [doubt] } }), { kind: 'review' });
   assert.deepEqual(nextMonthAction({ ...base, preview: { ...base.preview, pendingItems: [{ ...pfPending, status: 'JUSTIFICADA' }] } }), { kind: 'capture' });
   assert.deepEqual(nextMonthAction(base), { kind: 'capture' });
   for (const status of ['EM_FILA', 'EM_PROCESSAMENTO']) {
@@ -143,4 +145,22 @@ test('I10 web: compiled SPA bundle exposes complete first-journey endpoints and 
 
   assert.doesNotMatch(cssContent, /@import\s+url\(['"]?https?:/i);
   assert.match(cssContent, /tabular-nums/);
+});
+
+test('I11 web: reimbursement labels and compatible inflows', async () => {
+  const { reimbursementStatusLabel, roleInPeriodLabel, compatibleInflows } = await import('../../apps/web/src/ledger.mjs');
+  assert.equal(reimbursementStatusLabel('NAO_APLICAVEL'), 'Não se aplica');
+  assert.equal(reimbursementStatusLabel('PENDENTE_REEMBOLSO'), 'Reembolso pendente');
+  assert.equal(reimbursementStatusLabel('REEMBOLSADA_NO_MES'), 'Reembolsada no mês');
+  assert.equal(reimbursementStatusLabel('REEMBOLSADA_OUTRO_MES'), 'Reembolsada em outro mês');
+  assert.equal(reimbursementStatusLabel('LIQUIDACAO_DE_REEMBOLSO'), 'Liquidação de reembolso');
+  assert.equal(reimbursementStatusLabel('XYZ'), 'XYZ');
+  assert.equal(roleInPeriodLabel('DESPESA_ORIGEM_NO_PERIODO'), 'Despesa de origem neste mês');
+  assert.equal(roleInPeriodLabel('REEMBOLSO_PJ_NO_PERIODO'), 'Reembolso PJ neste mês');
+  assert.equal(roleInPeriodLabel('AMBOS_NO_PERIODO'), 'Despesa e reembolso neste mês');
+  assert.equal(roleInPeriodLabel('ENTRADA_PF_NO_PERIODO'), 'Entrada PF neste mês');
+  assert.equal(roleInPeriodLabel('OUTRO'), 'OUTRO');
+  const inflows = [{ transactionId: 'a', occurredOn: '2026-10-09' }, { transactionId: 'b', occurredOn: '2026-10-10' }, { transactionId: 'c', occurredOn: '2026-10-11' }];
+  assert.deepEqual(compatibleInflows(inflows, '2026-10-10').map((i) => i.transactionId), ['b', 'c']);
+  assert.deepEqual(compatibleInflows([], '2026-10-10'), []);
 });

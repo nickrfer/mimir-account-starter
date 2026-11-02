@@ -6,6 +6,8 @@ A mudança para v2 identifica explicitamente o campo obrigatório novo. O caminh
 
 categoryTotals agrega somente transactions do mês e inclui transferências no fluxo. Normalizar categoria em NFC e trim na entrada, preservar diferenças de caixa, ordenar por bytes UTF-8 e manter grupo com saldo líquido zero. Leia docs/category-totals.md para regras completas e docs/verifier-acceptance.md para os aceites semânticos adicionais.
 
+openapi-reembolsos.yaml (OpenAPI 3.1, info.version 0.1.0) é contrato complementar do RF-07, implementado no I11: criar, listar, consultar candidatos e desfazer vínculos de reembolso. Não altera a OpenAPI da jornada nem o manifesto v2; os campos de vínculo reutilizam os nomes do schema Reimbursement.
+
 csv-import-v1.schema.json, importacao_exemplo.csv, importacao_normalizada.json e vetores-fingerprint.json foram preservados. vetores-totalizacao.json acrescenta quatro casos de domínio e não representa transações completas de manifesto. A conferência dos tipos não substitui somas, referências, pertença ao mês ou autorização.
 
 Os schemas e o OpenAPI são contratos declarativos, não código da aplicação. O domínio .invalid identifica esquema local, não serviço publicado. O aplicativo e seu verificador CLI continuam pendentes de implementação.

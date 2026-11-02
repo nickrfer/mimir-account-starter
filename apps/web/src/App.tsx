@@ -13,6 +13,9 @@ import {
   nextVersionRequiresReason,
   nextMonthAction,
   parseBrlCents,
+  reimbursementStatusLabel,
+  roleInPeriodLabel,
+  compatibleInflows,
   shiftPeriodMonth,
   validateDocumentFile,
 } from './ledger.mjs';
@@ -50,8 +53,40 @@ interface PreviewTransaction {
   sourceCode: string;
   externalId: string;
   documentIds: string[];
-  reimbursementStatus: 'NAO_APLICAVEL' | 'PENDENTE_REEMBOLSO' | 'REEMBOLSADA_NO_MES' | 'REEMBOLSADA_OUTRO_MES' | 'LIQUIDACAO_DE_REEMBOLSO';
+  reimbursementStatus: ReimbursementStatus;
 }
+
+type ReimbursementStatus = 'NAO_APLICAVEL' | 'PENDENTE_REEMBOLSO' | 'REEMBOLSADA_NO_MES' | 'REEMBOLSADA_OUTRO_MES' | 'LIQUIDACAO_DE_REEMBOLSO';
+
+interface ReimbursementLink {
+  reimbursementLinkId: string;
+  pfExpenseTransactionId: string;
+  pjReimbursementTransactionId: string;
+  pfInflowTransactionId: string | null;
+  amountCents: number;
+  pfOriginDocumentIds: string[];
+  roleInPeriod: 'DESPESA_ORIGEM_NO_PERIODO' | 'REEMBOLSO_PJ_NO_PERIODO' | 'AMBOS_NO_PERIODO' | 'ENTRADA_PF_NO_PERIODO';
+}
+
+interface ReimbursementCandidate {
+  transactionId: string;
+  accountId: string;
+  accountName: string;
+  occurredOn: string;
+  amountCents: number;
+  descriptionOriginal: string;
+  categoryOriginal: string;
+}
+
+interface ReimbursementCandidates {
+  pfExpense: ReimbursementCandidate;
+  pjOutflows: ReimbursementCandidate[];
+  pfInflows: ReimbursementCandidate[];
+}
+
+type ReimbursementPanelState = { kind: 'link'; pfExpenseId: string } | { kind: 'unlink'; linkId: string };
+
+const MAX_REIMBURSEMENT_NOTES = 2000;
 
 interface PreviewPending {
   pendingId: string;
@@ -93,7 +128,7 @@ interface PreviewData {
   };
   transactions: PreviewTransaction[];
   contextTransactions: PreviewTransaction[];
-  reimbursementLinks: unknown[];
+  reimbursementLinks: ReimbursementLink[];
   pendingItems: PreviewPending[];
 }
 
@@ -147,6 +182,17 @@ function Icon({ name }: { name: 'upload' | 'arrow' | 'check' }) {
     check: <><path d="m4 12 5 5L20 6" /></>,
   };
   return <svg className="ui-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">{paths[name]}</svg>;
+}
+
+function isReimbursementCandidates(value: unknown): value is ReimbursementCandidates {
+  if (typeof value !== 'object' || value === null) return false;
+  const candidate = value as Partial<ReimbursementCandidates>;
+  return typeof candidate.pfExpense === 'object' && candidate.pfExpense !== null
+    && Array.isArray(candidate.pjOutflows) && Array.isArray(candidate.pfInflows);
+}
+
+function isRevisionResult(value: unknown): value is { revision: number } {
+  return typeof value === 'object' && value !== null && Number.isSafeInteger((value as { revision?: unknown }).revision);
 }
 
 async function fetchAllPages<T>(url: string, limit: number): Promise<{ items: T[]; status: number }> {
@@ -225,6 +271,19 @@ export function App() {
     sizeBytes: number;
   } | null>(null);
 
+  // Reimbursement panel
+  const [reimbPanel, setReimbPanel] = useState<ReimbursementPanelState | null>(null);
+  const [reimbCandidates, setReimbCandidates] = useState<ReimbursementCandidates | null>(null);
+  const [reimbLoading, setReimbLoading] = useState(false);
+  const [reimbError, setReimbError] = useState<string | null>(null);
+  const [reimbOutflowId, setReimbOutflowId] = useState('');
+  const [reimbInflowId, setReimbInflowId] = useState('');
+  const [reimbNotes, setReimbNotes] = useState('');
+  const reimbSequence = useRef(0);
+  const reimbPanelRef = useRef<HTMLElement | null>(null);
+  const reimbTriggerRef = useRef<HTMLElement | null>(null);
+  const [reimbRevision, setReimbRevision] = useState<number | null>(null);
+
   // Delivery capture form
   const [idempotencyKey, setIdempotencyKey] = useState(() => generateIdempotencyKey());
   const [rectificationReason, setRectificationReason] = useState('');
@@ -254,6 +313,7 @@ export function App() {
     if (sequence !== loadSequence.current) return;
 
     if (accPage.status === 401 || prevRes.status === 401 || delPage.status === 401) {
+      closeReimbursementPanel();
       setSession(null);
       setDataStatus('loading');
       setNotice({
@@ -331,6 +391,17 @@ export function App() {
       cancelled = true;
     };
   }, []);
+
+  useEffect(() => {
+    if (!session) closeReimbursementPanel();
+  }, [session]);
+
+  useEffect(() => {
+    if (reimbPanel && reimbRevision !== null && preview && preview.revision !== reimbRevision) {
+      closeReimbursementPanel(true);
+      setNotice((current) => current ?? { tone: 'warn', title: 'Visão atualizada', detail: 'O caderno mudou enquanto o painel de reembolso estava aberto. Reabra o vínculo para reler os candidatos.' });
+    }
+  }, [preview?.revision, reimbPanel, reimbRevision]);
 
   // Poll active operation while EM_FILA or EM_PROCESSAMENTO
   useEffect(() => {
@@ -430,6 +501,7 @@ export function App() {
   async function handleLogout() {
     if (!session || busyAction !== null) return;
     loadSequence.current += 1;
+    closeReimbursementPanel();
     setBusyAction('logout');
     const outcome = await attemptLogout(session.csrfToken);
     setBusyAction(null);
@@ -462,6 +534,7 @@ export function App() {
       return;
     }
     operationContext.current += 1;
+    closeReimbursementPanel();
     setPeriodMonth(nextMonth);
     setPreview(null);
     setDeliveries([]);
@@ -707,6 +780,140 @@ export function App() {
     }
   }
 
+  function closeReimbursementPanel(restoreFocus = false) {
+    reimbSequence.current += 1;
+    setReimbPanel(null);
+    setReimbCandidates(null);
+    setReimbLoading(false);
+    setReimbError(null);
+    setReimbOutflowId('');
+    setReimbInflowId('');
+    setReimbNotes('');
+    setReimbRevision(null);
+    if (restoreFocus) restoreReimbursementFocus();
+  }
+
+  function restoreReimbursementFocus() {
+    window.requestAnimationFrame(() => window.requestAnimationFrame(() => {
+      const trigger = reimbTriggerRef.current;
+      if (trigger?.isConnected && !(trigger as HTMLButtonElement).disabled) trigger.focus({ preventScroll: true });
+      else pendingSectionRef.current?.focus({ preventScroll: true });
+    }));
+  }
+
+  function focusReimbursementPanel() {
+    setActiveSection('review');
+    const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    window.requestAnimationFrame(() => {
+      reimbPanelRef.current?.scrollIntoView({ behavior: reduceMotion ? 'auto' : 'smooth', block: 'start' });
+      reimbPanelRef.current?.focus({ preventScroll: true });
+    });
+  }
+
+  function beginReimbursementPanel(state: ReimbursementPanelState) {
+    const active = document.activeElement;
+    const trigger = active instanceof HTMLElement && active !== document.body ? active : reimbTriggerRef.current;
+    closeReimbursementPanel();
+    reimbTriggerRef.current = trigger;
+    setReimbPanel(state);
+    setReimbRevision(preview?.revision ?? null);
+    focusReimbursementPanel();
+  }
+
+  async function openReimbursementLink(pfExpenseId: string) {
+    if (!session || busyAction !== null || dataStatus !== 'ready') return;
+    beginReimbursementPanel({ kind: 'link', pfExpenseId });
+    const sequence = reimbSequence.current;
+    const month = periodMonth;
+    setReimbLoading(true);
+    try {
+      const res = await fetch(`/api/v1/reimbursements/candidates?pfExpenseId=${encodeURIComponent(pfExpenseId)}`, { credentials: 'same-origin' });
+      const body = await res.json().catch(() => null);
+      if (sequence !== reimbSequence.current || month !== periodMonth) return;
+      if (!res.ok) {
+        if (res.status === 401) {
+          await loadWorkspaceData(periodMonth, session);
+          return;
+        }
+        setReimbError(describeApiError(res.status, body).message);
+        return;
+      }
+      if (!isReimbursementCandidates(body)) {
+        setReimbError('Resposta inesperada ao carregar os candidatos. Atualize a visão e tente novamente.');
+        return;
+      }
+      setReimbCandidates(body);
+    } catch {
+      if (sequence === reimbSequence.current) setReimbError('Não foi possível carregar os candidatos. Verifique a conexão e tente novamente.');
+    } finally {
+      if (sequence === reimbSequence.current) setReimbLoading(false);
+    }
+  }
+
+  function openReimbursementUnlink(linkId: string) {
+    if (!session || busyAction !== null || dataStatus !== 'ready') return;
+    beginReimbursementPanel({ kind: 'unlink', linkId });
+  }
+
+  async function submitReimbursement(method: 'POST' | 'DELETE', url: string, payload: Record<string, unknown>, okTitle: string, failTitle: string) {
+    if (!session || !preview || reimbRevision === null || preview.revision !== reimbRevision || busyAction !== null || dataStatus !== 'ready') return;
+    setBusyAction('reimbursement');
+    setNotice(null);
+    try {
+      const res = await fetch(url, {
+        method,
+        credentials: 'same-origin',
+        headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': session.csrfToken },
+        body: JSON.stringify({ ...payload, expectedRevision: reimbRevision }),
+      });
+      const body = await res.json().catch(() => null);
+      if (!res.ok) {
+        const err = describeApiError(res.status, body);
+        setNotice({ tone: 'err', title: failTitle, detail: err.message, code: err.code });
+        await loadWorkspaceData(periodMonth, session);
+        return;
+      }
+      if (!isRevisionResult(body)) {
+        closeReimbursementPanel();
+        setNotice({ tone: 'err', title: 'Resposta inesperada do servidor', detail: 'A operação pode ter sido gravada. Confira os reembolsos na visão atualizada antes de repetir.' });
+        await loadWorkspaceData(periodMonth, session);
+        return;
+      }
+      const updatedSession = { ...session, revision: body.revision };
+      setSession(updatedSession);
+      closeReimbursementPanel();
+      setNotice({ tone: 'ok', title: okTitle, detail: `Alteração gravada na revisão #${body.revision}.` });
+      await loadWorkspaceData(periodMonth, updatedSession);
+      restoreReimbursementFocus();
+    } catch {
+      setNotice({ tone: 'err', title: 'Conexão interrompida', detail: 'Atualize a visão e confira os reembolsos antes de repetir a operação.' });
+    } finally {
+      setBusyAction(null);
+    }
+  }
+
+  function handleConfirmReimbursementLink(event: FormEvent) {
+    event.preventDefault();
+    if (reimbPanel?.kind !== 'link' || !reimbOutflowId) return;
+    void submitReimbursement('POST', '/api/v1/reimbursements', {
+      pfExpenseTransactionId: reimbPanel.pfExpenseId,
+      pjReimbursementTransactionId: reimbOutflowId,
+      pfInflowTransactionId: reimbInflowId || null,
+      notes: reimbNotes.trim(),
+    }, 'Reembolso vinculado', 'Vínculo de reembolso recusado');
+  }
+
+  function handleConfirmReimbursementUnlink() {
+    if (reimbPanel?.kind !== 'unlink') return;
+    void submitReimbursement('DELETE', `/api/v1/reimbursements/${encodeURIComponent(reimbPanel.linkId)}`, {}, 'Vínculo desfeito', 'Não foi possível desfazer o vínculo');
+  }
+
+  function describeTransaction(transactionId: string | null) {
+    if (!transactionId || !preview) return 'Não informada';
+    const tx = [...preview.transactions, ...preview.contextTransactions].find((item) => item.transactionId === transactionId);
+    return tx ? `${tx.descriptionOriginal} · ${tx.occurredOn} · ${formatBrlCents(tx.amountCents)}` : 'Lançamento fora da visão carregada';
+  }
+
   const requiresRectification = nextVersionRequiresReason(deliveries);
   const nextAction = nextMonthAction({ loaded: dataStatus === 'ready', accounts, preview, deliveries });
   const latestDelivery = deliveries.reduce<DeliveryOperation | null>((latest, item) => !latest || item.versionNumber > latest.versionNumber ? item : latest, null);
@@ -720,6 +927,10 @@ export function App() {
         const tx = preview?.transactions.find((item) => item.transactionId === nextAction.transactionId);
         return { title: 'Falta um comprovante', detail: tx ? `${tx.descriptionOriginal} · ${tx.occurredOn} · ${formatBrlCents(tx.amountCents)}` : 'Anexe o comprovante deste lançamento para atualizar a pendência.', button: 'Anexar comprovante' };
       }
+      case 'reimbursement': {
+        const tx = preview?.transactions.find((item) => item.transactionId === nextAction.transactionId);
+        return { title: 'Falta vincular um reembolso', detail: tx ? `${tx.descriptionOriginal} · ${tx.occurredOn} · ${formatBrlCents(tx.amountCents)}` : 'Escolha a transferência PJ que reembolsou esta despesa paga em conta PF.', button: 'Vincular reembolso' };
+      }
       case 'review': return { title: 'Confira as pendências', detail: 'Confira estes itens. Eles continuarão registrados na entrega.', button: 'Ver pendências' };
       case 'capture': return { title: latestDelivery?.status === 'FALHA' ? 'Prepare uma nova entrega' : latestDelivery ? 'O acervo mudou desde a última entrega' : 'Pronto para preparar a entrega', detail: latestDelivery?.status === 'FALHA' ? 'A última operação falhou. Uma nova captura gera outra versão.' : latestDelivery ? 'A versão anterior preserva a revisão capturada. Prepare uma nova versão para incluir alterações recentes.' : 'Os lançamentos do mês podem ser preservados em um pacote auditável.', button: 'Abrir entregas' };
       case 'delivery': return { title: latestDelivery?.status === 'PRONTA' ? `Entrega v${latestDelivery.versionNumber} disponível` : `Entrega v${latestDelivery?.versionNumber ?? ''} em preparo`, detail: latestDelivery?.status === 'PRONTA' ? 'Baixe o pacote e o manifesto para conferência independente.' : 'Acompanhe a preparação do pacote; o status atualiza automaticamente.', button: 'Ver entrega' };
@@ -729,6 +940,7 @@ export function App() {
 
   function openNextAction() {
     if (nextAction.kind === 'document') { chooseUploadTransaction(nextAction.transactionId); return; }
+    if (nextAction.kind === 'reimbursement') { void openReimbursementLink(nextAction.transactionId); return; }
     if (nextAction.kind === 'loading') { void loadWorkspaceData(periodMonth, session); return; }
     if (nextAction.kind === 'accounts' || nextAction.kind === 'transactions') { setActiveSection(nextAction.kind); return; }
     if (nextAction.kind === 'capture' || nextAction.kind === 'delivery') { setActiveSection('deliveries'); return; }
@@ -1232,8 +1444,69 @@ export function App() {
                   <span className="section-kicker">Próximo passo</span>
                   <h2 id="heading-preview-totals">{nextActionContent.title}</h2>
                   <p>{nextActionContent.detail}</p>
-                  <button type="button" className="btn btn-primary" disabled={busyAction !== null} onClick={openNextAction}>{nextActionContent.button} <Icon name="arrow" /></button>
+                  <button type="button" className="btn btn-primary" disabled={busyAction !== null || (nextAction.kind === 'reimbursement' && dataStatus !== 'ready')} onClick={openNextAction}>{nextActionContent.button} <Icon name="arrow" /></button>
                 </div>
+
+                {reimbPanel && <section className="reimb-panel" role="dialog" aria-modal="false" aria-labelledby="heading-reimb" tabIndex={-1} ref={reimbPanelRef}
+                  onKeyDown={(event) => { if (event.key === 'Escape' && busyAction === null) closeReimbursementPanel(true); }}>
+                  {reimbPanel.kind === 'unlink' ? (() => {
+                    const link = preview?.reimbursementLinks.find((item) => item.reimbursementLinkId === reimbPanel.linkId);
+                    return <>
+                      <h3 id="heading-reimb">Desfazer vínculo de reembolso</h3>
+                      {link ? <p>A despesa <strong>{describeTransaction(link.pfExpenseTransactionId)}</strong> voltará a ficar com reembolso pendente. O vínculo de {formatBrlCents(link.amountCents)} ficará registrado como desfeito; entregas já capturadas não mudam.</p> : <p className="empty-hint">Este vínculo não está mais na visão do mês. Atualize a visão.</p>}
+                      <div className="form-actions">
+                        <button type="button" className="btn btn-primary" disabled={!link || busyAction !== null || dataStatus !== 'ready'} onClick={handleConfirmReimbursementUnlink}>{busyAction === 'reimbursement' ? 'Desfazendo…' : 'Confirmar: desfazer vínculo'}</button>
+                        <button type="button" className="btn btn-outline" disabled={busyAction !== null} onClick={() => closeReimbursementPanel(true)}>Cancelar</button>
+                      </div>
+                    </>;
+                  })() : <form onSubmit={handleConfirmReimbursementLink}>
+                    <h3 id="heading-reimb">Vincular reembolso</h3>
+                    {reimbLoading && <p className="empty-hint" role="status">Carregando candidatos…</p>}
+                    {reimbError && <p className="field-error" role="alert">{reimbError}</p>}
+                    {reimbCandidates && <>
+                      <p className="reimb-expense"><strong>{reimbCandidates.pfExpense.descriptionOriginal}</strong><span>{reimbCandidates.pfExpense.occurredOn} · {reimbCandidates.pfExpense.accountName} · {formatBrlCents(reimbCandidates.pfExpense.amountCents)}</span></p>
+                      {reimbCandidates.pjOutflows.length === 0 ? (
+                        <p className="context-note">Não há saída PJ compatível. Lance primeiro a transferência PJ de mesmo valor que reembolsou esta despesa; o vínculo é sempre escolhido por você.</p>
+                      ) : <>
+                        <fieldset className="reimb-options">
+                          <legend>Saída PJ que reembolsou a despesa</legend>
+                          {reimbCandidates.pjOutflows.map((item) => (
+                            <label key={item.transactionId} className="reimb-option">
+                              <input type="radio" name="reimb-outflow" value={item.transactionId} checked={reimbOutflowId === item.transactionId}
+                                onChange={() => { setReimbOutflowId(item.transactionId); setReimbInflowId(''); }} />
+                              <span><strong>{item.descriptionOriginal}</strong><small>{item.occurredOn} · {item.accountName} · {formatBrlCents(item.amountCents)}</small></span>
+                            </label>
+                          ))}
+                        </fieldset>
+                        {reimbOutflowId && (() => {
+                          const outflow = reimbCandidates.pjOutflows.find((item) => item.transactionId === reimbOutflowId);
+                          const inflows = outflow ? compatibleInflows(reimbCandidates.pfInflows, outflow.occurredOn) : [];
+                          return <fieldset className="reimb-options">
+                            <legend>Entrada correspondente na conta PF</legend>
+                            <label className="reimb-option">
+                              <input type="radio" name="reimb-inflow" value="" checked={reimbInflowId === ''} onChange={() => setReimbInflowId('')} />
+                              <span><strong>Sem entrada PF</strong></span>
+                            </label>
+                            {inflows.map((item) => (
+                              <label key={item.transactionId} className="reimb-option">
+                                <input type="radio" name="reimb-inflow" value={item.transactionId} checked={reimbInflowId === item.transactionId} onChange={() => setReimbInflowId(item.transactionId)} />
+                                <span><strong>{item.descriptionOriginal}</strong><small>{item.occurredOn} · {item.accountName} · {formatBrlCents(item.amountCents)}</small></span>
+                              </label>
+                            ))}
+                          </fieldset>;
+                        })()}
+                        <label className="field">
+                          <span>Observação (opcional)</span>
+                          <input type="text" maxLength={MAX_REIMBURSEMENT_NOTES} value={reimbNotes} onChange={(e) => setReimbNotes(e.target.value)} />
+                        </label>
+                      </>}
+                    </>}
+                    <div className="form-actions">
+                      <button type="submit" className="btn btn-primary" disabled={!reimbOutflowId || busyAction !== null || dataStatus !== 'ready'}>{busyAction === 'reimbursement' ? 'Vinculando…' : 'Confirmar vínculo'}</button>
+                      <button type="button" className="btn btn-outline" disabled={busyAction !== null} onClick={() => closeReimbursementPanel(true)}>Cancelar</button>
+                    </div>
+                  </form>}
+                </section>}
 
                 <details className="analysis-disclosure">
                   <summary>Ver análise do mês</summary>
@@ -1313,6 +1586,39 @@ export function App() {
                 </div>
                   </> : <p className="empty-hint">Análise disponível após carregar o mês.</p>}
                 </details>
+
+                {dataStatus === 'ready' && preview && <details className="analysis-disclosure">
+                  <summary>Reembolsos do mês ({preview.reimbursementLinks.length})</summary>
+                  {preview.reimbursementLinks.length === 0 ? <p className="empty-hint">Nenhum reembolso vinculado envolvendo este mês.</p> : <ul className="reimb-list">
+                    {preview.reimbursementLinks.map((link) => (
+                      <li key={link.reimbursementLinkId} className="reimb-item">
+                        <div>
+                          <span className="status-chip">{roleInPeriodLabel(link.roleInPeriod)}</span>
+                          <strong className="mono">{formatBrlCents(link.amountCents)}</strong>
+                        </div>
+                        <dl>
+                          <dt>Despesa PF</dt><dd>{describeTransaction(link.pfExpenseTransactionId)}</dd>
+                          <dt>Saída PJ</dt><dd>{describeTransaction(link.pjReimbursementTransactionId)}</dd>
+                          <dt>Entrada PF</dt><dd>{describeTransaction(link.pfInflowTransactionId)}</dd>
+                        </dl>
+                        <button type="button" className="btn btn-outline" disabled={busyAction !== null || dataStatus !== 'ready'} onClick={() => openReimbursementUnlink(link.reimbursementLinkId)}>Desfazer vínculo</button>
+                      </li>
+                    ))}
+                  </ul>}
+                </details>}
+
+                {dataStatus === 'ready' && preview && preview.contextTransactions.length > 0 && <details className="analysis-disclosure">
+                  <summary>Contexto de outros meses ({preview.contextTransactions.length})</summary>
+                  <p className="context-note">Estes lançamentos aparecem só para explicar os vínculos de reembolso e não entram nos totais nem no CSV deste mês.</p>
+                  <ul className="reimb-list">
+                    {preview.contextTransactions.map((tx) => (
+                      <li key={tx.transactionId} className="reimb-item">
+                        <strong>{tx.descriptionOriginal}</strong>
+                        <small>{tx.occurredOn} · [{tx.accountType}] {tx.accountName} · {tx.direction === 'SAIDA' ? '-' : '+'}{formatBrlCents(tx.amountCents)} · {reimbursementStatusLabel(tx.reimbursementStatus)}</small>
+                      </li>
+                    ))}
+                  </ul>
+                </details>}
               </section>}
 
               {/* 5. Movimentações principais e Pendências */}
@@ -1334,7 +1640,7 @@ export function App() {
                         <p>{tx ? `${tx.descriptionOriginal} · ${tx.occurredOn} · ${formatBrlCents(tx.amountCents)}` : item.description}</p>
                         {tx && <small>{item.description}</small>}
                       </div>
-                      {item.pendingType === 'DOCUMENTO_AUSENTE' ? <button type="button" className="btn btn-outline" onClick={() => chooseUploadTransaction(item.transactionId)}>Anexar comprovante <Icon name="arrow" /></button> : <span className="pending-guidance">{item.pendingType === 'REEMBOLSO_PF_PENDENTE' ? 'Reembolso ainda não liquidado · acompanha a entrega' : 'Acompanhar na entrega'}</span>}
+                      {item.pendingType === 'DOCUMENTO_AUSENTE' ? <button type="button" className="btn btn-outline" onClick={() => chooseUploadTransaction(item.transactionId)}>Anexar comprovante <Icon name="arrow" /></button> : item.pendingType === 'REEMBOLSO_PF_PENDENTE' ? <button type="button" className="btn btn-outline" disabled={busyAction !== null || dataStatus !== 'ready'} onClick={() => void openReimbursementLink(item.transactionId)}>Vincular reembolso <Icon name="arrow" /></button> : <span className="pending-guidance">Acompanhar na entrega</span>}
                     </li>;
                   })}
                 </ul>}
@@ -1375,7 +1681,7 @@ export function App() {
                             </td>
                             <td>
                               <span className="status-chip">{CLASSIFICATION_LABELS[tx.classification]}</span>
-                              <div className="row-sub mono">{tx.reimbursementStatus}</div>
+                              {tx.reimbursementStatus !== 'NAO_APLICAVEL' && <div className="row-sub">{reimbursementStatusLabel(tx.reimbursementStatus)}</div>}
                             </td>
                             <td className="num mono">
                               {tx.direction === 'SAIDA' ? '-' : '+'}
@@ -1394,6 +1700,9 @@ export function App() {
                                   Selecionar p/ upload
                                 </button>
                               </div>
+                              {tx.reimbursementStatus === 'PENDENTE_REEMBOLSO' && <div>
+                                <button type="button" className="btn-link" disabled={busyAction !== null || dataStatus !== 'ready'} onClick={() => void openReimbursementLink(tx.transactionId)}>Vincular reembolso</button>
+                              </div>}
                             </td>
                           </tr>
                         ))}

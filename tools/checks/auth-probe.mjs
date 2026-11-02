@@ -40,6 +40,45 @@ async function waitReady(state){
   }
   throw new Error('Operation did not become PRONTA');
 }
+async function exportVerified(zip,manifestBytes){
+  const verifiedDir='/probe-state/verified-package',verifiedManifest='/probe-state/verified.manifesto.json';
+  await rm(verifiedDir,{recursive:true,force:true});await mkdir(verifiedDir,{recursive:true});
+  for(const [name,data] of extractZipBuffer(zip)){const dest=join(verifiedDir,name);await mkdir(dirname(dest),{recursive:true});await writeFile(dest,data);}
+  await writeFile(verifiedManifest,manifestBytes);
+  const cli=spawnSync(process.execPath,['packages/verifier/dist/index.js',verifiedDir,verifiedManifest],{encoding:'utf8'});
+  assert.equal(cli.status,0,cli.stderr||cli.stdout);assert.match(cli.stdout,/^VERIFIED:/);
+}
+// Cross-month reimbursement on the real API; leaves the November package for the isolated verifier stage.
+async function checkReimbursement(state){
+  const json={Origin:origin,'Content-Type':'application/json',Cookie:state.cookie,'X-CSRF-Token':state.csrf};
+  const call=async(path,init={})=>fetch('http://api:3000/api/v1'+path,{headers:{Cookie:state.cookie},...init,signal:AbortSignal.timeout(10000)});
+  const account=await call('/accounts',{method:'POST',headers:json,body:JSON.stringify({name:'Remote synthetic PJ',accountType:'PJ',expectedRevision:4})});
+  assert.equal(account.status,201);const pj=(await account.json()).account.id;
+  const outflowResponse=await call('/transactions',{method:'POST',headers:json,body:JSON.stringify({accountId:pj,occurredOn:'2026-11-05',direction:'SAIDA',amountCents:1250,
+    description:'Remote synthetic reimbursement',category:'Transferencias',classification:'TRANSFERENCIA',isPfBusinessExpense:false,explanation:'',expectedRevision:5})});
+  assert.equal(outflowResponse.status,201);const outflow=(await outflowResponse.json()).transaction.transactionId;
+  const candidates=await (await call(`/reimbursements/candidates?pfExpenseId=${state.transactionId}`)).json();
+  assert.deepEqual(candidates.pjOutflows.map(item=>item.transactionId),[outflow]);
+  const linked=await call('/reimbursements',{method:'POST',headers:json,body:JSON.stringify({pfExpenseTransactionId:state.transactionId,pjReimbursementTransactionId:outflow,pfInflowTransactionId:null,notes:'',expectedRevision:6})});
+  assert.equal(linked.status,201);const link=await linked.json();assert.equal(link.revision,7);
+  const november=await (await call('/periods/2026-11/preview')).json();
+  assert.deepEqual(november.transactions.map(item=>item.transactionId),[outflow]);assert.deepEqual(november.contextTransactions.map(item=>item.transactionId),[state.transactionId]);
+  assert.equal(november.reimbursementLinks[0].roleInPeriod,'REEMBOLSO_PJ_NO_PERIODO');assert.deepEqual(november.reimbursementLinks[0].pfOriginDocumentIds,[state.documentId]);
+  assert.equal(november.summary.reimbursementsSettledInPeriodCents,1250);assert.equal(november.summary.businessExpenseTotalCents,0);
+  const october=await (await call('/periods/2026-10/preview')).json();
+  assert.equal(october.transactions[0].reimbursementStatus,'REEMBOLSADA_OUTRO_MES');assert.equal(october.summary.businessExpenseTotalCents,1250);
+  assert.ok(october.pendingItems.some(item=>item.pendingType==='REEMBOLSO_PF_PENDENTE'&&item.status==='RESOLVIDA'));
+  const captured=await call('/deliveries',{method:'POST',headers:{...json,'Idempotency-Key':randomUUID()},body:JSON.stringify({periodMonth:'2026-11',expectedRevision:7,rectificationReason:''})});
+  assert.equal(captured.status,202);const operation=await captured.json();
+  for(let i=0;i<80;i++){const current=await (await call(`/operations/${operation.id}`)).json();if(current.status==='PRONTA')break;assert.notEqual(current.status,'FALHA');assert.ok(i<79);await new Promise(resolve=>setTimeout(resolve,500));}
+  const zip=Buffer.from(await (await call(`/deliveries/${operation.snapshotId}/package`)).arrayBuffer());
+  const manifestBytes=Buffer.from(await (await call(`/deliveries/${operation.snapshotId}/manifest`)).arrayBuffer()),manifest=JSON.parse(manifestBytes.toString('utf8'));
+  assert.equal(manifest.contextTransactions.length,1);assert.equal(manifest.reimbursementLinks[0].reimbursementLinkId,link.reimbursement.reimbursementLinkId);
+  assert.ok(manifest.files.some(file=>file.documentId===state.documentId&&file.inclusionReasons.includes('CONTEXTO_REEMBOLSO')));
+  const octoberZip=Buffer.from(await (await call(`/deliveries/${state.deliveryOperation.snapshotId}/package`)).arrayBuffer());
+  assert.equal(createHash('sha256').update(octoberZip).digest('hex'),state.zipHash);
+  await exportVerified(zip,manifestBytes);
+}
 async function checkDelivery(state,first){
   const payload={periodMonth:'2026-10',expectedRevision:4,rectificationReason:''};
   const headers={Origin:origin,'Content-Type':'application/json',Cookie:state.cookie,'X-CSRF-Token':state.csrf,'Idempotency-Key':state.deliveryKey};
@@ -170,6 +209,7 @@ try {
       }finally{await admin.end();}
       await checkPreview(state.cookie,state);
       await checkDelivery(state);
+      await checkReimbursement(state);
       const logout=await fetch(base,{method:'DELETE',headers:{Cookie:state.cookie,Origin:origin,'X-CSRF-Token':state.csrf},signal:AbortSignal.timeout(5000)});
       assert.equal(logout.status,204);
       assert.equal((await fetch(base,{headers:{Cookie:state.cookie},signal:AbortSignal.timeout(5000)})).status,401);

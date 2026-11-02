@@ -14,8 +14,10 @@ import type { PreviewPort } from './ports/preview.js';
 import { handlePreview } from './preview/http.js';
 import type { DeliveriesPort } from './ports/deliveries.js';
 import { handleDeliveries } from './deliveries/http.js';
+import type { ReimbursementsPort } from './ports/reimbursements.js';
+import { handleReimbursements } from './reimbursements/http.js';
 
-export function createApp(persistence: PersistencePort, webRoot: string, authentication?: SessionHttpOptions, accounts?: AccountsPort, transactions?: TransactionsPort, documents?: DocumentsPort, preview?: PreviewPort, deliveries?: DeliveriesPort) {
+export function createApp(persistence: PersistencePort, webRoot: string, authentication?: SessionHttpOptions, accounts?: AccountsPort, transactions?: TransactionsPort, documents?: DocumentsPort, preview?: PreviewPort, deliveries?: DeliveriesPort, reimbursements?: ReimbursementsPort) {
   return createServer({ requestTimeout: 10000, headersTimeout: 5000, maxHeaderSize: 8192 }, (req, res) => {
     void (async () => {
       res.setHeader('X-Content-Type-Options', 'nosniff');
@@ -35,6 +37,10 @@ export function createApp(persistence: PersistencePort, webRoot: string, authent
       if (history && authentication && deliveries) { await handleDeliveries(req,res,authentication,deliveries,{ kind: 'history',month: history[1]! }); return; }
       const published = /^\/api\/v1\/deliveries\/([^/]+)\/(package|manifest)$/.exec(path);
       if (published && authentication && deliveries) { await handleDeliveries(req,res,authentication,deliveries,{ kind: published[2] as 'package' | 'manifest',id: published[1]! }); return; }
+      if (path === '/api/v1/reimbursements' && authentication && reimbursements) { await handleReimbursements(req,res,authentication,reimbursements,{ kind: 'collection' }); return; }
+      if (path === '/api/v1/reimbursements/candidates' && authentication && reimbursements) { await handleReimbursements(req,res,authentication,reimbursements,{ kind: 'candidates' }); return; }
+      const reimbursement = /^\/api\/v1\/reimbursements\/([^/]+)$/.exec(path);
+      if (reimbursement && authentication && reimbursements) { await handleReimbursements(req,res,authentication,reimbursements,{ kind: 'item',id: reimbursement[1]! }); return; }
       if (req.method !== 'GET' && req.method !== 'HEAD') { res.writeHead(405); res.end(); return; }
       if (path === '/health' || path === '/ready') {
         const ok = path === '/health' || await persistence.ready();

@@ -1,0 +1,374 @@
+openapi: 3.1.0
+info:
+  title: Mimir Account Reembolsos PF/PJ
+  version: 0.1.0
+  description: Contrato complementar do RF-07 (I11). Acrescenta comandos e consultas de
+    vinculos de reembolso integral sem alterar openapi-jornada-inicial.yaml 0.5.0. A
+    previa, a captura e o manifesto mimir.manifest.v2 continuam definidos no contrato da
+    jornada; os campos de vinculo usam os mesmos nomes do schema Reimbursement. Todas as
+    mutacoes exigem cookie de sessao, X-CSRF-Token e Origin permitido, bloqueiam o
+    espaco, comparam expectedRevision e incrementam revision uma unica vez. Nenhum
+    vinculo e criado automaticamente.
+servers:
+- url: http://localhost:3000/api/v1
+  description: Endereco local de desenvolvimento
+security:
+- sessionCookie: []
+paths:
+  /reimbursements:
+    post:
+      operationId: createReimbursement
+      summary: Vincular despesa PF empresarial a saida PJ de transferencia
+      description: Despesa = saida PF DESPESA marcada como empresarial; liquidacao = saida
+        PJ TRANSFERENCIA sem marca; entrada PF opcional = ENTRADA TRANSFERENCIA na mesma
+        conta PF. Valores iguais; data PJ >= data da despesa; data da entrada >= data PJ.
+        Cada participante pertence a no maximo um vinculo ativo. Resolve
+        REEMBOLSO_PF_PENDENTE da despesa no mesmo commit.
+      parameters:
+      - $ref: '#/components/parameters/Csrf'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ReimbursementInput'
+      responses:
+        '201':
+          description: Vinculo ativo criado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReimbursementMutation'
+        '400': {$ref: '#/components/responses/BadRequest'}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+        '403': {$ref: '#/components/responses/Forbidden'}
+        '404': {$ref: '#/components/responses/NotFound'}
+        '409':
+          description: REVISION_CONFLICT, REIMBURSEMENT_PARTICIPANT_LINKED ou
+            TRANSACTION_INACTIVE
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '413': {$ref: '#/components/responses/TooLarge'}
+        '415': {$ref: '#/components/responses/UnsupportedMediaType'}
+        '422':
+          description: INVALID_INPUT, REIMBURSEMENT_INVALID_PF_EXPENSE,
+            REIMBURSEMENT_INVALID_PJ_OUTFLOW, REIMBURSEMENT_INVALID_PF_INFLOW,
+            REIMBURSEMENT_AMOUNT_MISMATCH ou REIMBURSEMENT_DATE_ORDER_INVALID
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '405': {$ref: '#/components/responses/MethodNotAllowed'}
+        '500': {$ref: '#/components/responses/Internal'}
+    get:
+      operationId: listReimbursements
+      summary: Listar vinculos ativos e desfeitos que tocam o mes
+      description: Inclui vinculos com ao menos um participante cujo mes e periodMonth.
+        Ordenado por reimbursementLinkId; filtra o espaco antes de paginar. Nao altera
+        revision.
+      parameters:
+      - name: periodMonth
+        in: query
+        required: true
+        schema:
+          $ref: '#/components/schemas/PeriodMonth'
+      - $ref: '#/components/parameters/Cursor'
+      - $ref: '#/components/parameters/Limit'
+      responses:
+        '200':
+          description: Pagina de vinculos
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReimbursementPage'
+        '400': {$ref: '#/components/responses/BadRequest'}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+        '403': {$ref: '#/components/responses/Forbidden'}
+        '404': {$ref: '#/components/responses/NotFound'}
+        '422': {$ref: '#/components/responses/Unprocessable'}
+        '405': {$ref: '#/components/responses/MethodNotAllowed'}
+        '500': {$ref: '#/components/responses/Internal'}
+  /reimbursements/candidates:
+    get:
+      operationId: listReimbursementCandidates
+      summary: Candidatos compativeis para uma despesa PF empresarial sem vinculo
+      description: Apoio a escolha explicita do usuario. Retorna saidas PJ e entradas PF
+        ativas, sem vinculo ativo, de mesmo valor e data nao anterior a despesa, ate 200
+        de cada, ordenadas por data e id. A entrada PF ainda precisa ter data >= saida PJ
+        escolhida; o comando revalida tudo sob bloqueio. Leitura REPEATABLE READ READ
+        ONLY.
+      parameters:
+      - name: pfExpenseId
+        in: query
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        '200':
+          description: Candidatos
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReimbursementCandidates'
+        '400': {$ref: '#/components/responses/BadRequest'}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+        '403': {$ref: '#/components/responses/Forbidden'}
+        '404': {$ref: '#/components/responses/NotFound'}
+        '409':
+          description: REIMBURSEMENT_PARTICIPANT_LINKED ou TRANSACTION_INACTIVE
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '422':
+          description: INVALID_ID ou REIMBURSEMENT_INVALID_PF_EXPENSE
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '405': {$ref: '#/components/responses/MethodNotAllowed'}
+        '500': {$ref: '#/components/responses/Internal'}
+  /reimbursements/{reimbursementLinkId}:
+    delete:
+      operationId: undoReimbursement
+      summary: Desfazer logicamente um vinculo ativo
+      description: Marca o vinculo como DESFEITO, preservando historico, movimentacoes,
+        documentos e entregas. Reabre REEMBOLSO_PF_PENDENTE da despesa sem justificativa
+        antiga. Vinculo ja desfeito retorna 409 sem incremento.
+      parameters:
+      - $ref: '#/components/parameters/Csrf'
+      - name: reimbursementLinkId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RevisionInput'
+      responses:
+        '200':
+          description: Vinculo desfeito
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReimbursementMutation'
+        '400': {$ref: '#/components/responses/BadRequest'}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+        '403': {$ref: '#/components/responses/Forbidden'}
+        '404': {$ref: '#/components/responses/NotFound'}
+        '409':
+          description: REVISION_CONFLICT ou REIMBURSEMENT_ALREADY_UNDONE
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '413': {$ref: '#/components/responses/TooLarge'}
+        '415': {$ref: '#/components/responses/UnsupportedMediaType'}
+        '422':
+          description: INVALID_ID ou INVALID_INPUT
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '405': {$ref: '#/components/responses/MethodNotAllowed'}
+        '500': {$ref: '#/components/responses/Internal'}
+components:
+  securitySchemes:
+    sessionCookie:
+      type: apiKey
+      in: cookie
+      name: mimir_session
+  parameters:
+    Csrf:
+      name: X-CSRF-Token
+      in: header
+      required: true
+      schema:
+        type: string
+        pattern: ^[0-9a-f]{64}$
+    Cursor:
+      name: cursor
+      in: query
+      required: false
+      schema:
+        type: string
+        format: uuid
+    Limit:
+      name: limit
+      in: query
+      required: false
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 200
+        default: 100
+  responses:
+    BadRequest:
+      description: Requisicao malformada ou parametros nao permitidos
+      content:
+        application/json:
+          schema: {$ref: '#/components/schemas/Error'}
+    Unauthorized:
+      description: Sessao ausente, invalida ou expirada
+      content:
+        application/json:
+          schema: {$ref: '#/components/schemas/Error'}
+    Forbidden:
+      description: CSRF ou origem invalida
+      content:
+        application/json:
+          schema: {$ref: '#/components/schemas/Error'}
+    NotFound:
+      description: Objeto ausente ou de outro proprietario
+      content:
+        application/json:
+          schema: {$ref: '#/components/schemas/Error'}
+    TooLarge:
+      description: Corpo excede limite
+      content:
+        application/json:
+          schema: {$ref: '#/components/schemas/Error'}
+    UnsupportedMediaType:
+      description: Exigido JSON UTF-8
+      content:
+        application/json:
+          schema: {$ref: '#/components/schemas/Error'}
+    Unprocessable:
+      description: Conteudo invalido
+      content:
+        application/json:
+          schema: {$ref: '#/components/schemas/Error'}
+    MethodNotAllowed:
+      description: METHOD_NOT_ALLOWED
+      content:
+        application/json:
+          schema: {$ref: '#/components/schemas/Error'}
+    Internal:
+      description: Erro interno sanitizado
+      content:
+        application/json:
+          schema: {$ref: '#/components/schemas/Error'}
+  schemas:
+    Error:
+      type: object
+      properties:
+        code: {type: string, minLength: 1}
+        message: {type: string, minLength: 1}
+        requestId: {type: string, minLength: 1}
+      required: [code, message, requestId]
+      additionalProperties: false
+    PeriodMonth:
+      type: string
+      pattern: ^(19[0-9]{2}|[2-9][0-9]{3})-(0[1-9]|1[0-2])$
+    Uuid:
+      type: string
+      format: uuid
+    ReimbursementInput:
+      type: object
+      properties:
+        pfExpenseTransactionId: {$ref: '#/components/schemas/Uuid'}
+        pjReimbursementTransactionId: {$ref: '#/components/schemas/Uuid'}
+        pfInflowTransactionId:
+          type: [string, 'null']
+          format: uuid
+        notes:
+          type: string
+          maxLength: 2000
+          description: Normalizado em NFC, quebras LF e sem espacos perifericos.
+        expectedRevision:
+          type: integer
+          minimum: 1
+          maximum: 9007199254740991
+      required: [pfExpenseTransactionId, pjReimbursementTransactionId, pfInflowTransactionId, notes, expectedRevision]
+      additionalProperties: false
+    RevisionInput:
+      type: object
+      properties:
+        expectedRevision:
+          type: integer
+          minimum: 1
+          maximum: 9007199254740991
+      required: [expectedRevision]
+      additionalProperties: false
+    ReimbursementLinkRecord:
+      type: object
+      properties:
+        reimbursementLinkId: {$ref: '#/components/schemas/Uuid'}
+        pfExpenseTransactionId: {$ref: '#/components/schemas/Uuid'}
+        pjReimbursementTransactionId: {$ref: '#/components/schemas/Uuid'}
+        pfInflowTransactionId:
+          type: [string, 'null']
+          format: uuid
+        amountCents:
+          type: integer
+          minimum: 1
+          maximum: 99999999999
+        notes:
+          type: string
+          maxLength: 2000
+        status:
+          type: string
+          enum: [ATIVO, DESFEITO]
+        createdAt:
+          type: string
+          format: date-time
+        undoneAt:
+          type: [string, 'null']
+          format: date-time
+      required: [reimbursementLinkId, pfExpenseTransactionId, pjReimbursementTransactionId, pfInflowTransactionId, amountCents, notes, status, createdAt, undoneAt]
+      additionalProperties: false
+    ReimbursementMutation:
+      type: object
+      properties:
+        reimbursement: {$ref: '#/components/schemas/ReimbursementLinkRecord'}
+        revision:
+          type: integer
+          minimum: 1
+          maximum: 9007199254740991
+      required: [reimbursement, revision]
+      additionalProperties: false
+    ReimbursementPage:
+      type: object
+      properties:
+        items:
+          type: array
+          maxItems: 200
+          items: {$ref: '#/components/schemas/ReimbursementLinkRecord'}
+        nextCursor:
+          type: [string, 'null']
+          format: uuid
+      required: [items, nextCursor]
+      additionalProperties: false
+    CandidateTransaction:
+      type: object
+      properties:
+        transactionId: {$ref: '#/components/schemas/Uuid'}
+        accountId: {$ref: '#/components/schemas/Uuid'}
+        accountName: {type: string, minLength: 1, maxLength: 200}
+        occurredOn: {type: string, format: date}
+        amountCents: {type: integer, minimum: 1, maximum: 99999999999}
+        descriptionOriginal: {type: string, minLength: 1, maxLength: 500}
+        categoryOriginal: {type: string, minLength: 1, maxLength: 100}
+      required: [transactionId, accountId, accountName, occurredOn, amountCents, descriptionOriginal, categoryOriginal]
+      additionalProperties: false
+    ReimbursementCandidates:
+      type: object
+      properties:
+        pfExpense: {$ref: '#/components/schemas/CandidateTransaction'}
+        pjOutflows:
+          type: array
+          maxItems: 200
+          items: {$ref: '#/components/schemas/CandidateTransaction'}
+        pfInflows:
+          type: array
+          maxItems: 200
+          items: {$ref: '#/components/schemas/CandidateTransaction'}
+      required: [pfExpense, pjOutflows, pfInflows]
+      additionalProperties: false

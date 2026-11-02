@@ -852,3 +852,26 @@ button { -webkit-tap-highlight-color: transparent; }
   .next-action .btn { width: 100%; }
   .analysis-disclosure .summary-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
+
+.reimb-panel { margin: 1rem 0; padding: 1rem 1.1rem; background: var(--surface-tint); border: 1px solid var(--border-rule); border-radius: .8rem; min-width: 0; }
+.reimb-panel:focus-visible { outline: 2px solid var(--accent-seal); outline-offset: 2px; }
+.reimb-panel h3 { margin: 0 0 .6rem; font: 600 1.15rem var(--font-serif); }
+.reimb-expense { display: flex; flex-direction: column; gap: .15rem; margin: 0 0 .8rem; overflow-wrap: anywhere; }
+.reimb-options { margin: 0 0 .9rem; padding: 0; border: 0; min-width: 0; display: flex; flex-direction: column; gap: .4rem; }
+.reimb-options > legend { padding: 0; margin-bottom: .4rem; font-weight: 650; font-size: .9rem; }
+.reimb-option { display: flex; align-items: flex-start; gap: .6rem; padding: .6rem .7rem; background: var(--surface-sheet); border: 1px solid var(--border-rule); border-radius: .6rem; cursor: pointer; min-width: 0; }
+.reimb-option:focus-within { outline: 2px solid var(--accent-seal); outline-offset: 2px; }
+.reimb-option input { margin-top: .25rem; flex: none; }
+.reimb-option span { display: flex; flex-direction: column; min-width: 0; overflow-wrap: anywhere; }
+.reimb-option small, .reimb-item small { color: var(--ink-muted); }
+.reimb-list { list-style: none; margin: .6rem 0 0; padding: 0; display: flex; flex-direction: column; gap: .6rem; }
+.reimb-item { display: flex; flex-direction: column; align-items: flex-start; gap: .4rem; padding: .75rem .9rem; background: #f8f9f4; border-radius: .7rem; min-width: 0; max-width: 100%; overflow-wrap: anywhere; }
+.reimb-item dl { margin: 0; display: grid; grid-template-columns: max-content minmax(0, 1fr); gap: .15rem .7rem; font-size: .86rem; }
+.reimb-item dt { color: var(--ink-muted); }
+.reimb-item dd { margin: 0; min-width: 0; }
+@media (max-width: 640px) {
+  .reimb-item dl { grid-template-columns: minmax(0, 1fr); }
+}
+
+.reimb-panel .form-actions { margin-top: 1rem; }
+.reimb-panel .field { margin-bottom: .25rem; }
