@@ -984,7 +984,7 @@ export function App() {
         <div className="masthead-brand">
           <div className="brand-mark" aria-hidden="true">M</div>
           <div>
-            <h1>Mimir Account</h1>
+            <h1>Mimir Contabilidade</h1>
             {!session && <p className="brand-subtitle">Seu caderno financeiro mensal</p>}
           </div>
         </div>

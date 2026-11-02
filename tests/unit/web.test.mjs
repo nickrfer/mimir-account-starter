@@ -113,7 +113,7 @@ test('I10 web: next action follows actual month state and never calls an old del
 test('I10 web: compiled SPA bundle exposes complete first-journey endpoints and respects CSP self-only', async () => {
   const distDir = new URL('apps/web/dist/', rootDir);
   const html = await readFile(new URL('index.html', distDir), 'utf8');
-  assert.match(html, /Mimir Account/);
+  assert.match(html, /Mimir Contabilidade/);
   assert.doesNotMatch(html, /https?:\/\/fonts\./i);
 
   const assetsPath = fileURLToPath(new URL('assets/', distDir));
@@ -163,4 +163,12 @@ test('I11 web: reimbursement labels and compatible inflows', async () => {
   const inflows = [{ transactionId: 'a', occurredOn: '2026-10-09' }, { transactionId: 'b', occurredOn: '2026-10-10' }, { transactionId: 'c', occurredOn: '2026-10-11' }];
   assert.deepEqual(compatibleInflows(inflows, '2026-10-10').map((i) => i.transactionId), ['b', 'c']);
   assert.deepEqual(compatibleInflows([], '2026-10-10'), []);
+});
+
+test('web: tema escuro padrao declarado em :root e cores apenas como tokens', async () => {
+  const css = await readFile(new URL('apps/web/src/style.css', rootDir), 'utf8');
+  const rootBlock = css.match(/:root\s*\{[^}]*\}/)?.[0] ?? '';
+  assert.match(rootBlock, /color-scheme:\s*dark;/);
+  const outsideRoot = css.replace(rootBlock, '');
+  assert.doesNotMatch(outsideRoot, /#[0-9a-fA-F]{3,8}\b|rgba?\(|hsla?\(|(?<![-\w])(white|black)(?![-\w])/);
 });
