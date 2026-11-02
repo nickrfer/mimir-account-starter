@@ -1,0 +1,18 @@
+{
+  "C04": [
+    {
+      "project": "mimir-eval-c04-5714b6d2",
+      "reason": "Defeito do harness: (1) o conjunto de diagnósticos coerentes da classe 'extra' omitiu SYMLINK_FORBIDDEN (a lista de códigos do verificador foi lida truncada); o verificador detectou o link simbólico com exit 1. (2) O controle de limitação passou o manifesto de dentro do próprio pacote como referência, e o verificador recusa autorreferência (exit 2, EXTERNAL_REFERENCE_REQUIRED); a limitação a demonstrar é a referência externa não confiável. Nenhuma das duas indica falha do produto; ambas as observações constam da execução substituta."
+    }
+  ],
+  "C01": [
+    {
+      "project": "mimir-eval-c01-1546d146",
+      "reason": "Defeito do harness: a contagem de requisições enfileiradas lia pg_stat_activity.wait_event_type, invisível para o papel do harness (mimir_migrator não é superusuário nem membro de pg_read_all_stats), e retornava sempre 0; nenhuma intercalação foi aceita e a execução foi interrompida após 29 tentativas descartadas, sem resultado. Corrigido para contar locks não concedidos em pg_locks."
+    },
+    {
+      "project": "mimir-eval-c01-a95482fa",
+      "reason": "Falha de ambiente antes do cenário: o Docker esgotou os pools de endereço de rede (projetos de avaliação anteriores encerrados com stop mantinham suas redes). Nenhuma intercalação executada. Projetos anteriores de avaliação passaram a ser encerrados com down, preservando volumes."
+    }
+  ]
+}

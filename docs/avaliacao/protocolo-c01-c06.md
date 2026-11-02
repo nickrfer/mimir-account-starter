@@ -106,3 +106,19 @@ C06 em Docker limitado sobre WSL2, não host dedicado; C02 roda o executor fora 
 ## 9. Ordem de execução
 
 C03 → C04 → C01 → C02 → C05 → C06 (do mais automatizável ao que exige ambiente e conferência).
+
+## Errata
+
+### E1 — C01, verificação (a) — 02/11/2026, durante a coleta
+
+A verificação derivada "(a) exatamente uma das duas operações com revisão R vence; a outra recebe 409" contradiz o desenho documentado antes deste protocolo: a captura **não incrementa** a revisão (constituição, Princípio III; `docs/protocols.md` §6.1). Logo, quando a captura é atendida primeiro, a mutação seguinte com a mesma revisão R é legitimamente aceita e leva o espaço a R+1, sem afetar o snapshot já capturado.
+
+Detectada na primeira execução completa do C01 (`mimir-eval-c01-bb8b62c5`): 48/100 aprovadas; as 52 reprovadas são exatamente as execuções com a captura atendida primeiro, todas com snapshot consistente com R, pacote verificado e v1 preservada. Essa execução é mantida íntegra em `resultados/historico/C01-execucao-1-checagem-derivada-incorreta.{json,md}`.
+
+O critério de `docs/requirements.md` (nenhuma mistura; snapshot consistente ou 409; bytes anteriores preservados) **não muda**. Verificações corrigidas por ordem atendida:
+
+- **Captura atendida primeiro**: captura 202 com `capturedRevision = R` e manifesto igual à prévia em R; pacote verificado; mutação com R aceita em seguida; revisão final R+1; uma versão nova.
+- **Mutação atendida primeiro**: mutação aceita; captura com R recusada com 409 `REVISION_CONFLICT`; nenhuma versão nova; captura seguinte igual à prévia em R+1.
+- **Em ambos**: v1 byte a byte igual. Qualquer outra combinação reprova.
+
+O C01 é repetido integralmente com as verificações corrigidas.
