@@ -34,3 +34,19 @@ export function describeApiError(
   status: number,
   payload: unknown
 ): { code: string; message: string; requestId: string | null };
+export type TransactionEditableFields = {
+  accountId: string;
+  occurredOn: string;
+  direction: Direction;
+  amountCents: number;
+  description: string;
+  category: string;
+  classification: Classification;
+  isPfBusinessExpense: boolean;
+  explanation: string;
+};
+export function buildTransactionPatch(
+  original: TransactionEditableFields,
+  draft: TransactionEditableFields
+): Partial<TransactionEditableFields> | null;
+export function lockedFieldsForLinked(isLinked: boolean): (keyof TransactionEditableFields)[];

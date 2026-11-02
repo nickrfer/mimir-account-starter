@@ -172,3 +172,17 @@ test('web: tema escuro padrao declarado em :root e cores apenas como tokens', as
   const outsideRoot = css.replace(rootBlock, '');
   assert.doesNotMatch(outsideRoot, /#[0-9a-fA-F]{3,8}\b|rgba?\(|hsla?\(|(?<![-\w])(white|black)(?![-\w])/);
 });
+
+test('I12 web: patch parcial de lancamento e campos bloqueados para vinculados', async () => {
+  const { buildTransactionPatch, lockedFieldsForLinked } = await import('../../apps/web/src/ledger.mjs');
+  const original = {
+    accountId: 'a1', occurredOn: '2026-10-05', direction: 'SAIDA', amountCents: 1250,
+    description: 'Hospedagem', category: 'Infra', classification: 'DESPESA', isPfBusinessExpense: false, explanation: '',
+  };
+  assert.equal(buildTransactionPatch(original, { ...original }), null);
+  assert.equal(buildTransactionPatch(original, { ...original, description: '  Hospedagem ', explanation: '   ' }), null);
+  assert.deepEqual(buildTransactionPatch(original, { ...original, amountCents: 1300, category: ' Nuvem ' }), { amountCents: 1300, category: 'Nuvem' });
+  assert.deepEqual(buildTransactionPatch(original, { ...original, isPfBusinessExpense: true, occurredOn: '2026-10-06' }), { occurredOn: '2026-10-06', isPfBusinessExpense: true });
+  assert.deepEqual(lockedFieldsForLinked(true), ['accountId', 'occurredOn', 'direction', 'amountCents', 'classification', 'isPfBusinessExpense']);
+  assert.deepEqual(lockedFieldsForLinked(false), []);
+});

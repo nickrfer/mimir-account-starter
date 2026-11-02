@@ -8,6 +8,8 @@ categoryTotals agrega somente transactions do mês e inclui transferências no f
 
 openapi-reembolsos.yaml (OpenAPI 3.1, info.version 0.1.0) é contrato complementar do RF-07, implementado no I11: criar, listar, consultar candidatos e desfazer vínculos de reembolso. Não altera a OpenAPI da jornada nem o manifesto v2; os campos de vínculo reutilizam os nomes do schema Reimbursement.
 
+openapi-lancamentos.yaml (OpenAPI 3.1, info.version 0.1.0) é contrato complementar do RF-04, implementado no I12: consultar, listar, corrigir e excluir logicamente lançamentos. A criação continua em openapi-jornada-inicial.yaml.
+
 csv-import-v1.schema.json, importacao_exemplo.csv, importacao_normalizada.json e vetores-fingerprint.json foram preservados. vetores-totalizacao.json acrescenta quatro casos de domínio e não representa transações completas de manifesto. A conferência dos tipos não substitui somas, referências, pertença ao mês ou autorização.
 
 Os schemas e o OpenAPI são contratos declarativos, não código da aplicação. O domínio .invalid identifica esquema local, não serviço publicado. O aplicativo e seu verificador CLI continuam pendentes de implementação.

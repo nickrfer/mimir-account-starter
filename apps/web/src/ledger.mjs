@@ -185,3 +185,20 @@ export function describeApiError(status, payload) {
     payload && typeof payload === 'object' && typeof payload.requestId === 'string' ? payload.requestId : null;
   return { code, message, requestId };
 }
+
+const PATCH_FIELDS = ['accountId', 'occurredOn', 'direction', 'amountCents', 'description', 'category', 'classification', 'isPfBusinessExpense', 'explanation'];
+const LINKED_LOCKED_FIELDS = ['accountId', 'occurredOn', 'direction', 'amountCents', 'classification', 'isPfBusinessExpense'];
+
+export function buildTransactionPatch(original, draft) {
+  const patch = {};
+  for (const field of PATCH_FIELDS) {
+    const before = typeof original[field] === 'string' ? original[field].trim() : original[field];
+    const after = typeof draft[field] === 'string' ? draft[field].trim() : draft[field];
+    if (before !== after) patch[field] = after;
+  }
+  return Object.keys(patch).length === 0 ? null : patch;
+}
+
+export function lockedFieldsForLinked(isLinked) {
+  return isLinked ? [...LINKED_LOCKED_FIELDS] : [];
+}
