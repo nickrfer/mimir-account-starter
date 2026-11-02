@@ -288,3 +288,65 @@ export function describeDocumentError(status, payload) {
   if (Object.hasOwn(DOCUMENT_STATUS_MESSAGES, status)) return { ...described, message: DOCUMENT_STATUS_MESSAGES[status] };
   return described;
 }
+
+const IMPORT_MAX_BYTES = 1048576;
+
+export function validateImportFile(file) {
+  if (!file) return 'Selecione um arquivo CSV de até 1 MiB.';
+  if (!/\.csv$/i.test(file.name)) return 'O arquivo deve ter extensão .csv.';
+  if (file.size <= 0) return 'O arquivo está vazio.';
+  if (file.size > IMPORT_MAX_BYTES) return 'O arquivo excede o limite de 1 MiB.';
+  return null;
+}
+
+export function importReady(preview) {
+  return Boolean(preview) && preview.totals.invalid === 0 && preview.totals.conflicting === 0;
+}
+
+const IMPORT_STATUS_LABELS = {
+  NOVA: 'Nova',
+  IGNORADA: 'Já importada',
+  REPETIDA: 'Repetida no arquivo',
+  CONFLITO: 'Conflito',
+  INVALIDA: 'Inválida',
+};
+
+const IMPORT_REASON_LABELS = {
+  ORIGIN_CHANGED: 'Origem já importada com conteúdo diferente',
+  ORIGIN_DELETED: 'Origem de lançamento excluído; não é restaurada',
+  DUPLICATE_KEY_DIFFERENT_CONTENT: 'Mesmo external_id com conteúdo diferente no arquivo',
+  INVALID_FIELD: 'Campo inválido',
+  OUT_OF_PERIOD: 'Fora do mês',
+  INVALID_RULE: 'Regra de lançamento',
+};
+
+export function importStatusLabel(status) {
+  return Object.hasOwn(IMPORT_STATUS_LABELS, status) ? IMPORT_STATUS_LABELS[status] : status;
+}
+
+export function importReasonLabel(code) {
+  return Object.hasOwn(IMPORT_REASON_LABELS, code) ? IMPORT_REASON_LABELS[code] : code;
+}
+
+const IMPORT_ERROR_MESSAGES = {
+  IMPORT_INVALID_ROWS: 'O arquivo tem linhas inválidas. Corrija o CSV e pré-visualize de novo; nada foi gravado.',
+  FILE_HASH_MISMATCH: 'O arquivo mudou desde a pré-visualização. Pré-visualize novamente.',
+  IMPORT_CONFLICT: 'Há linhas em conflito com lançamentos já importados. Nada foi gravado.',
+  REVISION_CONFLICT: 'O caderno mudou desde a pré-visualização. Pré-visualize novamente.',
+  ACCOUNT_INACTIVE: 'A conta está inativa e não aceita importação.',
+  UPLOAD_LIMIT: 'Há envios demais em andamento. Aguarde um instante e tente novamente.',
+  IMPORTED_TRANSACTION_ACCOUNT_LOCKED: 'Conta de lançamento importado não pode ser trocada.',
+};
+
+const IMPORT_STATUS_MESSAGES = {
+  413: 'O arquivo excede o limite de 1 MiB.',
+  415: 'Envie o arquivo como CSV.',
+  429: IMPORT_ERROR_MESSAGES.UPLOAD_LIMIT,
+};
+
+export function describeImportError(status, payload) {
+  const described = describeApiError(status, payload);
+  if (Object.hasOwn(IMPORT_ERROR_MESSAGES, described.code)) return { ...described, message: IMPORT_ERROR_MESSAGES[described.code] };
+  if (Object.hasOwn(IMPORT_STATUS_MESSAGES, status)) return { ...described, message: IMPORT_STATUS_MESSAGES[status] };
+  return described;
+}

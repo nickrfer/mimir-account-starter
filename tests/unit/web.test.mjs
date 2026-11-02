@@ -282,3 +282,41 @@ test('I15 web: agrupamento, vinculaveis, tamanho e erros de documentos', async (
   assert.equal(describeDocumentError(500, { code: 'X', message: 'texto do servidor' }).message, 'texto do servidor');
   assert.equal(describeDocumentError(500, null).code, 'HTTP_500');
 });
+
+test('I16 web: arquivo, aptidao, rotulos e erros de importacao CSV', async () => {
+  const { validateImportFile, importReady, importStatusLabel, importReasonLabel, describeImportError } = await import('../../apps/web/src/ledger.mjs');
+  assert.equal(validateImportFile({ name: 'extrato.csv', size: 10 }), null);
+  assert.equal(validateImportFile({ name: 'EXTRATO.CSV', size: 1048576 }), null);
+  assert.match(validateImportFile({ name: 'extrato.csv', size: 1048577 }), /1 MiB/);
+  assert.match(validateImportFile({ name: 'extrato.csv', size: 0 }), /vazio/);
+  assert.match(validateImportFile({ name: 'extrato.txt', size: 10 }), /\.csv/);
+  assert.match(validateImportFile(null), /Selecione/);
+  assert.equal(importReady({ totals: { rows: 2, new: 2, ignored: 0, repeated: 0, conflicting: 0, invalid: 0 } }), true);
+  assert.equal(importReady({ totals: { rows: 2, new: 0, ignored: 2, repeated: 0, conflicting: 0, invalid: 0 } }), true);
+  assert.equal(importReady({ totals: { rows: 2, new: 1, ignored: 0, repeated: 0, conflicting: 1, invalid: 0 } }), false);
+  assert.equal(importReady({ totals: { rows: 2, new: 1, ignored: 0, repeated: 0, conflicting: 0, invalid: 1 } }), false);
+  assert.equal(importReady(null), false);
+  assert.deepEqual(['NOVA', 'IGNORADA', 'REPETIDA', 'CONFLITO', 'INVALIDA'].map(importStatusLabel), ['Nova', 'Já importada', 'Repetida no arquivo', 'Conflito', 'Inválida']);
+  assert.equal(importStatusLabel('X'), 'X');
+  assert.equal(importReasonLabel('ORIGIN_CHANGED'), 'Origem já importada com conteúdo diferente');
+  assert.equal(importReasonLabel('ORIGIN_DELETED'), 'Origem de lançamento excluído; não é restaurada');
+  assert.equal(importReasonLabel('DUPLICATE_KEY_DIFFERENT_CONTENT'), 'Mesmo external_id com conteúdo diferente no arquivo');
+  assert.equal(importReasonLabel('INVALID_FIELD'), 'Campo inválido');
+  assert.equal(importReasonLabel('OUT_OF_PERIOD'), 'Fora do mês');
+  assert.equal(importReasonLabel('INVALID_RULE'), 'Regra de lançamento');
+  assert.equal(importReasonLabel('OUTRO'), 'OUTRO');
+  const codes = ['IMPORT_INVALID_ROWS', 'FILE_HASH_MISMATCH', 'IMPORT_CONFLICT', 'REVISION_CONFLICT', 'ACCOUNT_INACTIVE', 'UPLOAD_LIMIT', 'IMPORTED_TRANSACTION_ACCOUNT_LOCKED'];
+  const seen = new Set();
+  for (const code of codes) {
+    const described = describeImportError(409, { code, message: 'texto do servidor', requestId: 'r1' });
+    assert.equal(described.code, code);
+    assert.notEqual(described.message, 'texto do servidor', code);
+    seen.add(described.message);
+  }
+  assert.equal(seen.size, codes.length);
+  assert.equal(describeImportError(422, { code: 'INVALID_CSV', message: 'Linha 3: valor inválido', requestId: 'r' }).message, 'Linha 3: valor inválido');
+  for (const status of [413, 415, 429]) {
+    assert.notEqual(describeImportError(status, { code: 'X', message: 'texto do servidor' }).message, 'texto do servidor', String(status));
+  }
+  assert.equal(describeImportError(500, null).code, 'HTTP_500');
+});

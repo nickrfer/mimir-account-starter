@@ -59,3 +59,9 @@ export function documentsByTransaction<T extends { transactionIds: readonly stri
 export function linkableDocuments<T extends { transactionIds: readonly string[] }>(documents: readonly T[], transactionId: string): T[];
 export function formatFileSize(bytes: number): string;
 export function describeDocumentError(status: number, payload: unknown): { code: string; message: string; requestId: string | null };
+export type ImportTotals = { rows: number; new: number; ignored: number; repeated: number; conflicting: number; invalid: number };
+export function validateImportFile(file: Pick<File, 'name' | 'size'> | null): string | null;
+export function importReady(preview: { totals: ImportTotals } | null): boolean;
+export function importStatusLabel(status: string): string;
+export function importReasonLabel(code: string): string;
+export function describeImportError(status: number, payload: unknown): { code: string; message: string; requestId: string | null };

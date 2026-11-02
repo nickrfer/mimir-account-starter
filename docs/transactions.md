@@ -6,7 +6,7 @@ Todos os dez campos são obrigatórios: accountId, occurredOn, direction, amount
 
 RECEITA exige ENTRADA; DESPESA exige SAIDA; TRANSFERENCIA/A_ESCLARECER aceitam ambas. Marca PF empresarial exige conta PF, DESPESA e SAIDA. Receita PF é permitida; não se transforma em receita empresarial por ser entrada. Totais ainda não são calculados.
 
-Descrição (1–500), categoria (1–100) e explicação (0–2000) usam NFC, CRLF para LF e trim, com limites antes/depois da normalização e rejeição de NUL. JSON maior que 32 KiB retorna 413; sessões/contas continuam em 8 KiB. Servidor deriva mês YYYY-MM e gera UUID/procedência MANUAL; externalId é o ID do lançamento. Não cria origem de importação artificial.
+Descrição (1–500), categoria (1–100) e explicação (0–2000) usam NFC, CRLF para LF e trim, com limites antes/depois da normalização e rejeição de NUL. JSON maior que 32 KiB retorna 413; sessões/contas continuam em 8 KiB. Servidor deriva mês YYYY-MM e gera UUID/procedência MANUAL; externalId é o ID do lançamento. Não cria origem de importação artificial. Lançamentos importados por CSV (I16, `docs/http-api.md` e `packages/contracts/openapi-importacao.yaml`) têm procedência `CSV`, fonte e `externalId` da linha, origem imutável em `import_origins` e conta que não pode ser trocada; a procedência de qualquer lançamento é protegida por trigger (migrações 010 e 011).
 
 ## Atomicidade e segurança
 
