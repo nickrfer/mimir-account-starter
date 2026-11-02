@@ -55,3 +55,7 @@ export type PendingAction = 'JUSTIFY' | 'RESOLVE' | 'REOPEN' | 'EDIT';
 export function validatePendingText(text: unknown): { value: string; error: string | null };
 export function allowedPendingActions(item: { pendingType: string; status: string } | null): PendingAction[];
 export function hasQuestion(pendingItems: readonly { transactionId: string; pendingType: string }[], transactionId: string): boolean;
+export function documentsByTransaction<T extends { transactionIds: readonly string[] }>(documents: readonly T[]): Map<string, T[]>;
+export function linkableDocuments<T extends { transactionIds: readonly string[] }>(documents: readonly T[], transactionId: string): T[];
+export function formatFileSize(bytes: number): string;
+export function describeDocumentError(status: number, payload: unknown): { code: string; message: string; requestId: string | null };
