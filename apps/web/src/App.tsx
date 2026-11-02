@@ -3,6 +3,7 @@ import type { FormEvent } from 'react';
 import {
   allowedClassifications,
   attemptLogout,
+  buildTransactionPatch,
   buildVerifierCommand,
   canMarkPfBusinessExpense,
   defaultDateForMonth,
@@ -10,6 +11,7 @@ import {
   formatBrlCents,
   generateIdempotencyKey,
   isValidPeriodMonth,
+  lockedFieldsForLinked,
   nextVersionRequiresReason,
   nextMonthAction,
   parseBrlCents,
@@ -87,6 +89,36 @@ interface ReimbursementCandidates {
 type ReimbursementPanelState = { kind: 'link'; pfExpenseId: string } | { kind: 'unlink'; linkId: string };
 
 const MAX_REIMBURSEMENT_NOTES = 2000;
+
+type TransactionPanelState = { kind: 'edit' | 'delete'; transactionId: string };
+
+interface TransactionDraft {
+  accountId: string;
+  occurredOn: string;
+  direction: Direction;
+  amountInput: string;
+  description: string;
+  category: string;
+  classification: Classification;
+  isPfBusinessExpense: boolean;
+  explanation: string;
+}
+
+const LINKED_TRANSACTION_GUIDANCE = 'Este lançamento participa de um reembolso. Desfaça o vínculo para mudar valor, data, conta, direção, classificação ou marca empresarial.';
+
+function draftFromTransaction(tx: PreviewTransaction): TransactionDraft {
+  return {
+    accountId: tx.accountId,
+    occurredOn: tx.occurredOn,
+    direction: tx.direction,
+    amountInput: `${Math.floor(tx.amountCents / 100)},${String(tx.amountCents % 100).padStart(2, '0')}`,
+    description: tx.descriptionOriginal,
+    category: tx.categoryOriginal,
+    classification: tx.classification,
+    isPfBusinessExpense: tx.isPfBusinessExpense,
+    explanation: tx.explanationOriginal,
+  };
+}
 
 interface PreviewPending {
   pendingId: string;
@@ -284,6 +316,15 @@ export function App() {
   const reimbTriggerRef = useRef<HTMLElement | null>(null);
   const [reimbRevision, setReimbRevision] = useState<number | null>(null);
 
+  // Transaction correction/deletion panel
+  const [txPanel, setTxPanel] = useState<TransactionPanelState | null>(null);
+  const [txDraft, setTxDraft] = useState<TransactionDraft | null>(null);
+  const [txPanelRevision, setTxPanelRevision] = useState<number | null>(null);
+  const [txPanelMessage, setTxPanelMessage] = useState<{ tone: 'warn' | 'err'; text: string } | null>(null);
+  const txPanelSequence = useRef(0);
+  const txPanelRef = useRef<HTMLElement | null>(null);
+  const txPanelTriggerRef = useRef<HTMLElement | null>(null);
+
   // Delivery capture form
   const [idempotencyKey, setIdempotencyKey] = useState(() => generateIdempotencyKey());
   const [rectificationReason, setRectificationReason] = useState('');
@@ -314,6 +355,7 @@ export function App() {
 
     if (accPage.status === 401 || prevRes.status === 401 || delPage.status === 401) {
       closeReimbursementPanel();
+      closeTransactionPanel();
       setSession(null);
       setDataStatus('loading');
       setNotice({
@@ -393,8 +435,18 @@ export function App() {
   }, []);
 
   useEffect(() => {
-    if (!session) closeReimbursementPanel();
+    if (!session) {
+      closeReimbursementPanel();
+      closeTransactionPanel();
+    }
   }, [session]);
+
+  useEffect(() => {
+    if (txPanel && txPanelRevision !== null && preview && preview.revision !== txPanelRevision) {
+      closeTransactionPanel(true);
+      setNotice((current) => current ?? { tone: 'warn', title: 'Visão atualizada', detail: 'O caderno mudou enquanto o painel do lançamento estava aberto. Reabra o lançamento para conferir os dados atuais.' });
+    }
+  }, [preview?.revision, txPanel, txPanelRevision]);
 
   useEffect(() => {
     if (reimbPanel && reimbRevision !== null && preview && preview.revision !== reimbRevision) {
@@ -502,6 +554,7 @@ export function App() {
     if (!session || busyAction !== null) return;
     loadSequence.current += 1;
     closeReimbursementPanel();
+    closeTransactionPanel();
     setBusyAction('logout');
     const outcome = await attemptLogout(session.csrfToken);
     setBusyAction(null);
@@ -535,6 +588,7 @@ export function App() {
     }
     operationContext.current += 1;
     closeReimbursementPanel();
+    closeTransactionPanel();
     setPeriodMonth(nextMonth);
     setPreview(null);
     setDeliveries([]);
@@ -814,6 +868,7 @@ export function App() {
     const active = document.activeElement;
     const trigger = active instanceof HTMLElement && active !== document.body ? active : reimbTriggerRef.current;
     closeReimbursementPanel();
+    closeTransactionPanel();
     reimbTriggerRef.current = trigger;
     setReimbPanel(state);
     setReimbRevision(preview?.revision ?? null);
@@ -906,6 +961,145 @@ export function App() {
   function handleConfirmReimbursementUnlink() {
     if (reimbPanel?.kind !== 'unlink') return;
     void submitReimbursement('DELETE', `/api/v1/reimbursements/${encodeURIComponent(reimbPanel.linkId)}`, {}, 'Vínculo desfeito', 'Não foi possível desfazer o vínculo');
+  }
+
+  function closeTransactionPanel(restoreFocus = false) {
+    txPanelSequence.current += 1;
+    setTxPanel(null);
+    setTxDraft(null);
+    setTxPanelRevision(null);
+    setTxPanelMessage(null);
+    if (restoreFocus) restoreTransactionFocus();
+  }
+
+  function restoreTransactionFocus() {
+    window.requestAnimationFrame(() => window.requestAnimationFrame(() => {
+      const trigger = txPanelTriggerRef.current;
+      if (trigger?.isConnected && !(trigger as HTMLButtonElement).disabled) trigger.focus({ preventScroll: true });
+      else pendingSectionRef.current?.focus({ preventScroll: true });
+    }));
+  }
+
+  function openTransactionPanel(kind: TransactionPanelState['kind'], tx: PreviewTransaction) {
+    if (!session || busyAction !== null || dataStatus !== 'ready') return;
+    const active = document.activeElement;
+    const trigger = active instanceof HTMLElement && active !== document.body ? active : txPanelTriggerRef.current;
+    closeReimbursementPanel();
+    closeTransactionPanel();
+    txPanelTriggerRef.current = trigger;
+    setTxPanel({ kind, transactionId: tx.transactionId });
+    setTxDraft(draftFromTransaction(tx));
+    setTxPanelRevision(preview?.revision ?? null);
+    setActiveSection('review');
+    const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    window.requestAnimationFrame(() => {
+      txPanelRef.current?.scrollIntoView({ behavior: reduceMotion ? 'auto' : 'smooth', block: 'start' });
+      txPanelRef.current?.focus({ preventScroll: true });
+    });
+  }
+
+  function updateTxDraft(change: Partial<TransactionDraft>) {
+    setTxPanelMessage(null);
+    setTxDraft((previous) => {
+      if (!previous) return previous;
+      const next = { ...previous, ...change };
+      if (!allowedClassifications(next.direction).includes(next.classification)) {
+        next.classification = next.direction === 'ENTRADA' ? 'RECEITA' : 'DESPESA';
+      }
+      const accountType = accounts.find((account) => account.id === next.accountId)?.accountType;
+      if (!canMarkPfBusinessExpense(accountType, next.direction, next.classification)) next.isPfBusinessExpense = false;
+      return next;
+    });
+  }
+
+  function isTransactionLinked(transactionId: string) {
+    return preview?.reimbursementLinks.some((link) => link.pfExpenseTransactionId === transactionId
+      || link.pjReimbursementTransactionId === transactionId
+      || link.pfInflowTransactionId === transactionId) ?? false;
+  }
+
+  async function submitTransactionChange(method: 'PATCH' | 'DELETE', transactionId: string, payload: Record<string, unknown>, okTitle: string, failTitle: string) {
+    if (!session || !preview || txPanelRevision === null || preview.revision !== txPanelRevision || busyAction !== null || dataStatus !== 'ready') return;
+    const sequence = txPanelSequence.current;
+    const month = periodMonth;
+    setBusyAction('transaction-change');
+    txPanelRef.current?.focus({ preventScroll: true });
+    setNotice(null);
+    setTxPanelMessage(null);
+    try {
+      const res = await fetch(`/api/v1/transactions/${encodeURIComponent(transactionId)}`, {
+        method,
+        credentials: 'same-origin',
+        headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': session.csrfToken },
+        body: JSON.stringify({ ...payload, expectedRevision: txPanelRevision }),
+      });
+      const body = await res.json().catch(() => null);
+      if (sequence !== txPanelSequence.current || month !== periodMonth) {
+        if (res.status !== 401) await loadWorkspaceData(periodMonth, session);
+        return;
+      }
+      if (!res.ok) {
+        if (res.status === 401) {
+          await loadWorkspaceData(periodMonth, session);
+          return;
+        }
+        const err = describeApiError(res.status, body);
+        setTxPanelMessage({ tone: 'err', text: err.message });
+        setNotice({ tone: 'err', title: failTitle, detail: err.message, code: err.code });
+        await loadWorkspaceData(periodMonth, session);
+        return;
+      }
+      if (!isRevisionResult(body)) {
+        closeTransactionPanel();
+        setNotice({ tone: 'err', title: 'Resposta inesperada do servidor', detail: 'A operação pode ter sido gravada. Confira os lançamentos na visão atualizada antes de repetir.' });
+        await loadWorkspaceData(periodMonth, session);
+        return;
+      }
+      const updatedSession = { ...session, revision: body.revision };
+      setSession(updatedSession);
+      closeTransactionPanel();
+      setNotice({ tone: 'ok', title: okTitle, detail: `Alteração gravada na revisão #${body.revision}.` });
+      await loadWorkspaceData(periodMonth, updatedSession);
+      restoreTransactionFocus();
+    } catch {
+      setNotice({ tone: 'err', title: 'Conexão interrompida', detail: 'Atualize a visão e confira o lançamento antes de repetir a operação.' });
+    } finally {
+      setBusyAction(null);
+    }
+  }
+
+  function handleSubmitTransactionEdit(event: FormEvent) {
+    event.preventDefault();
+    if (txPanel?.kind !== 'edit' || !txDraft || !preview || busyAction !== null || dataStatus !== 'ready') return;
+    const tx = preview.transactions.find((item) => item.transactionId === txPanel.transactionId);
+    if (!tx) return;
+    const amountCents = parseBrlCents(txDraft.amountInput);
+    if (amountCents === null) {
+      setTxPanelMessage({ tone: 'warn', text: 'Informe um valor positivo em reais com até 2 casas decimais (ex.: 12,50).' });
+      return;
+    }
+    if (!txDraft.description.trim() || !txDraft.category.trim()) {
+      setTxPanelMessage({ tone: 'warn', text: 'Descrição e categoria não podem ficar vazias.' });
+      return;
+    }
+    const patch = buildTransactionPatch(
+      {
+        accountId: tx.accountId, occurredOn: tx.occurredOn, direction: tx.direction, amountCents: tx.amountCents,
+        description: tx.descriptionOriginal, category: tx.categoryOriginal, classification: tx.classification,
+        isPfBusinessExpense: tx.isPfBusinessExpense, explanation: tx.explanationOriginal,
+      },
+      { ...txDraft, amountCents },
+    );
+    if (patch === null) {
+      setTxPanelMessage({ tone: 'warn', text: 'Nada foi alterado' });
+      return;
+    }
+    void submitTransactionChange('PATCH', tx.transactionId, patch, 'Lançamento corrigido', 'Correção recusada');
+  }
+
+  function handleConfirmTransactionDelete() {
+    if (txPanel?.kind !== 'delete' || isTransactionLinked(txPanel.transactionId)) return;
+    void submitTransactionChange('DELETE', txPanel.transactionId, {}, 'Lançamento excluído', 'Exclusão recusada');
   }
 
   function describeTransaction(transactionId: string | null) {
@@ -1645,6 +1839,93 @@ export function App() {
                   })}
                 </ul>}
 
+                {txPanel && (() => {
+                  const tx = preview?.transactions.find((item) => item.transactionId === txPanel.transactionId);
+                  const linked = isTransactionLinked(txPanel.transactionId);
+                  const locked = new Set<string>(lockedFieldsForLinked(linked));
+                  const draftAccountType = accounts.find((account) => account.id === txDraft?.accountId)?.accountType;
+                  const canSubmit = busyAction === null && dataStatus === 'ready';
+                  return <section className="reimb-panel" role="dialog" aria-modal="false" aria-labelledby="heading-tx-panel" tabIndex={-1} ref={txPanelRef}
+                    onKeyDown={(event) => { if (event.key === 'Escape' && busyAction === null) closeTransactionPanel(true); }}>
+                    {!tx || !txDraft ? <>
+                      <h3 id="heading-tx-panel">Lançamento indisponível</h3>
+                      <p className="empty-hint">Este lançamento não está mais na visão do mês. Atualize a visão.</p>
+                      <div className="form-actions"><button type="button" className="btn btn-outline" disabled={busyAction !== null} onClick={() => closeTransactionPanel(true)}>Fechar</button></div>
+                    </> : txPanel.kind === 'delete' ? <>
+                      <h3 id="heading-tx-panel">Excluir lançamento</h3>
+                      <p className="reimb-expense"><strong>{tx.descriptionOriginal}</strong><span>{tx.occurredOn} · {tx.accountName} · {formatBrlCents(tx.amountCents)}</span></p>
+                      <p>O lançamento sai da prévia e das próximas entregas. Documentos e entregas já capturadas são mantidos.</p>
+                      {linked && <p className="context-note">Este lançamento participa de um reembolso. Desfaça o vínculo antes de excluí-lo.</p>}
+                      {txPanelMessage && <p className="field-error" role="alert">{txPanelMessage.text}</p>}
+                      <div className="form-actions">
+                        <button type="button" className="btn btn-primary" disabled={linked || !canSubmit} onClick={handleConfirmTransactionDelete}>{busyAction === 'transaction-change' ? 'Excluindo…' : 'Confirmar exclusão'}</button>
+                        <button type="button" className="btn btn-outline" disabled={busyAction !== null} onClick={() => closeTransactionPanel(true)}>Cancelar</button>
+                      </div>
+                    </> : <form onSubmit={handleSubmitTransactionEdit}>
+                      <h3 id="heading-tx-panel">Corrigir lançamento</h3>
+                      {linked && <p className="context-note">{LINKED_TRANSACTION_GUIDANCE}</p>}
+                      <div className="form-row">
+                        <label className="field field-grow">
+                          <span>Conta da movimentação</span>
+                          <select value={txDraft.accountId} disabled={locked.has('accountId') || busyAction !== null} onChange={(e) => updateTxDraft({ accountId: e.target.value })}>
+                            {accounts.filter((account) => account.active || account.id === tx.accountId).map((account) => (
+                              <option key={account.id} value={account.id}>[{account.accountType}] {account.name}</option>
+                            ))}
+                          </select>
+                        </label>
+                        <label className="field">
+                          <span>Data civil</span>
+                          <input type="date" required className="mono" value={txDraft.occurredOn} disabled={locked.has('occurredOn') || busyAction !== null} onChange={(e) => updateTxDraft({ occurredOn: e.target.value })} />
+                        </label>
+                      </div>
+                      <div className="form-row">
+                        <label className="field">
+                          <span>Direção</span>
+                          <select value={txDraft.direction} disabled={locked.has('direction') || busyAction !== null} onChange={(e) => updateTxDraft({ direction: e.target.value as Direction })}>
+                            <option value="SAIDA">SAÍDA</option>
+                            <option value="ENTRADA">ENTRADA</option>
+                          </select>
+                        </label>
+                        <label className="field">
+                          <span>Classificação</span>
+                          <select value={txDraft.classification} disabled={locked.has('classification') || busyAction !== null} onChange={(e) => updateTxDraft({ classification: e.target.value as Classification })}>
+                            {allowedClassifications(txDraft.direction).map((cls) => <option key={cls} value={cls}>{CLASSIFICATION_LABELS[cls]}</option>)}
+                          </select>
+                        </label>
+                        <label className="field">
+                          <span>Valor (BRL)</span>
+                          <input type="text" required inputMode="decimal" className="mono" value={txDraft.amountInput} disabled={locked.has('amountCents') || busyAction !== null} onChange={(e) => updateTxDraft({ amountInput: e.target.value })} />
+                        </label>
+                      </div>
+                      <div className="form-row">
+                        <label className="field">
+                          <span>Categoria</span>
+                          <input type="text" required maxLength={100} value={txDraft.category} disabled={busyAction !== null} onChange={(e) => updateTxDraft({ category: e.target.value })} />
+                        </label>
+                        <label className="field field-grow">
+                          <span>Descrição da operação</span>
+                          <input type="text" required maxLength={500} value={txDraft.description} disabled={busyAction !== null} onChange={(e) => updateTxDraft({ description: e.target.value })} />
+                        </label>
+                      </div>
+                      <label className="checkbox-field">
+                        <input type="checkbox" checked={txDraft.isPfBusinessExpense}
+                          disabled={locked.has('isPfBusinessExpense') || busyAction !== null || !canMarkPfBusinessExpense(draftAccountType, txDraft.direction, txDraft.classification)}
+                          onChange={(e) => updateTxDraft({ isPfBusinessExpense: e.target.checked })} />
+                        <span>Despesa empresarial paga em conta PF</span>
+                      </label>
+                      <label className="field">
+                        <span>Explicação complementar (opcional)</span>
+                        <input type="text" maxLength={2000} value={txDraft.explanation} disabled={busyAction !== null} onChange={(e) => updateTxDraft({ explanation: e.target.value })} />
+                      </label>
+                      {txPanelMessage && <p className={txPanelMessage.tone === 'err' ? 'field-error' : 'context-note'} role={txPanelMessage.tone === 'err' ? 'alert' : 'status'}>{txPanelMessage.text}</p>}
+                      <div className="form-actions">
+                        <button type="submit" className="btn btn-primary" disabled={!canSubmit}>{busyAction === 'transaction-change' ? 'Gravando…' : 'Salvar correção'}</button>
+                        <button type="button" className="btn btn-outline" disabled={busyAction !== null} onClick={() => closeTransactionPanel(true)}>Cancelar</button>
+                      </div>
+                    </form>}
+                  </section>;
+                })()}
+
                 <details className="secondary-disclosure"><summary>Ver todos os lançamentos ({preview?.transactions.length ?? 0})</summary>
 
                 {dataStatus !== 'ready' ? <p className="empty-hint">Carregue o mês para ver os lançamentos.</p> : (preview?.transactions.length ?? 0) === 0 ? (
@@ -1662,6 +1943,7 @@ export function App() {
                           <th>Classificação</th>
                           <th className="num">Valor</th>
                           <th>Comprovantes</th>
+                          <th>Ações</th>
                         </tr>
                       </thead>
                       <tbody>
@@ -1703,6 +1985,12 @@ export function App() {
                               {tx.reimbursementStatus === 'PENDENTE_REEMBOLSO' && <div>
                                 <button type="button" className="btn-link" disabled={busyAction !== null || dataStatus !== 'ready'} onClick={() => void openReimbursementLink(tx.transactionId)}>Vincular reembolso</button>
                               </div>}
+                            </td>
+                            <td>
+                              <div className="row-actions">
+                                <button type="button" className="btn-link" disabled={busyAction !== null || dataStatus !== 'ready'} onClick={() => openTransactionPanel('edit', tx)}>Corrigir</button>
+                                <button type="button" className="btn-link" disabled={busyAction !== null || dataStatus !== 'ready'} onClick={() => openTransactionPanel('delete', tx)}>Excluir</button>
+                              </div>
                             </td>
                           </tr>
                         ))}

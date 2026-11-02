@@ -26,6 +26,8 @@ export function createApp(persistence: PersistencePort, webRoot: string, authent
       if (path === '/api/v1/session' && authentication) { await handleSession(req, res, authentication); return; }
       if (path === '/api/v1/accounts' && authentication && accounts) { await handleAccounts(req, res, authentication, accounts); return; }
       if (path === '/api/v1/transactions' && authentication && transactions) { await handleTransactions(req, res, authentication, transactions); return; }
+      const transactionItem = /^\/api\/v1\/transactions\/([^/]+)$/.exec(path);
+      if (transactionItem && authentication && transactions) { await handleTransactions(req, res, authentication, transactions, transactionItem[1]!); return; }
       const upload = /^\/api\/v1\/transactions\/([^/]+)\/documents$/.exec(path);
       if (upload && authentication && documents) { await handleDocuments(req, res, authentication, documents, upload[1]!); return; }
       const monthPreview = /^\/api\/v1\/periods\/([^/]+)\/preview$/.exec(path);

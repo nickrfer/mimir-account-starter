@@ -34,3 +34,43 @@ test('initial pending predicates reflect document classification and PF-business
   assert.deepEqual(m.initialPendingTypes({classification:'A_ESCLARECER',isPfBusinessExpense:false}),['CLASSIFICACAO_A_ESCLARECER']);
   assert.deepEqual(m.initialPendingTypes({classification:'TRANSFERENCIA',isPfBusinessExpense:false}),[]);
 });
+
+const loadPending=async()=>{const m=await import('../../apps/api/dist/transactions/pending.js');assert.ok(m.reconcileAutomaticPending,'I12 reconciliation missing');return m;};
+const facts=(extra={})=>({classification:'DESPESA',isPfBusinessExpense:false,hasDocuments:false,hasActiveReimbursement:false,...extra});
+const row=(type,status,justification='')=>({type,status,justification});
+const byType=actions=>Object.fromEntries(actions.map(a=>[a.type,a.action]));
+
+test('I12 reconciliation: lost cause resolves, new cause inserts, resolved cause reopens',async()=>{
+  const {reconcileAutomaticPending:r}=await loadPending();
+  assert.deepEqual(byType(r(facts({classification:'TRANSFERENCIA'}),[row('DOCUMENTO_AUSENTE','PENDENTE')],true)),{DOCUMENTO_AUSENTE:'RESOLVE'});
+  assert.deepEqual(byType(r(facts(),[],true)),{DOCUMENTO_AUSENTE:'INSERT'});
+  assert.deepEqual(byType(r(facts({classification:'A_ESCLARECER'}),[row('DOCUMENTO_AUSENTE','PENDENTE')],true)),{DOCUMENTO_AUSENTE:'RESOLVE',CLASSIFICACAO_A_ESCLARECER:'INSERT'});
+  assert.deepEqual(byType(r(facts(),[row('DOCUMENTO_AUSENTE','RESOLVIDA','antiga')],false)),{DOCUMENTO_AUSENTE:'REOPEN'});
+  assert.deepEqual(byType(r(facts({hasDocuments:true}),[row('DOCUMENTO_AUSENTE','RESOLVIDA')],true)),{});
+  assert.deepEqual(byType(r(facts({classification:'TRANSFERENCIA'}),[row('DOCUMENTO_AUSENTE','RESOLVIDA')],true)),{});
+});
+
+test('I12 reconciliation: justified pending survives text-only change and reopens on material change',async()=>{
+  const {reconcileAutomaticPending:r}=await loadPending();
+  const justified=[row('DOCUMENTO_AUSENTE','JUSTIFICADA','Comprovante extraviado')];
+  assert.deepEqual(byType(r(facts(),justified,false)),{});
+  assert.deepEqual(byType(r(facts(),justified,true)),{DOCUMENTO_AUSENTE:'REOPEN'});
+  assert.deepEqual(byType(r(facts({classification:'TRANSFERENCIA'}),justified,false)),{DOCUMENTO_AUSENTE:'RESOLVE'});
+});
+
+test('I12 reconciliation: PF reimbursement pending follows the business flag and active link; manual questions untouched',async()=>{
+  const {reconcileAutomaticPending:r}=await loadPending();
+  assert.deepEqual(byType(r(facts({isPfBusinessExpense:true,hasDocuments:true}),[],true)),{REEMBOLSO_PF_PENDENTE:'INSERT'});
+  assert.deepEqual(byType(r(facts({isPfBusinessExpense:true,hasDocuments:true,hasActiveReimbursement:true}),[row('REEMBOLSO_PF_PENDENTE','RESOLVIDA')],false)),{});
+  assert.deepEqual(byType(r(facts({hasDocuments:true}),[row('REEMBOLSO_PF_PENDENTE','PENDENTE')],true)),{REEMBOLSO_PF_PENDENTE:'RESOLVE'});
+  assert.deepEqual(byType(r(facts({classification:'TRANSFERENCIA'}),[row('DUVIDA_CADASTRADA','PENDENTE')],true)),{});
+});
+
+test('I12 patch input accepts partial changes only and normalizes like creation',async()=>{
+  const m=await import('../../apps/api/dist/transactions/input.js');assert.ok(m.transactionPatchInput,'I12 patch input missing');
+  assert.deepEqual(m.transactionPatchInput({amountCents:120,expectedRevision:3}),{changes:{amountCents:120},expectedRevision:3});
+  assert.deepEqual(m.transactionPatchInput({description:' Café ',accountId:id.toUpperCase(),expectedRevision:1}).changes,{description:'Café',accountId:id});
+  for(const bad of [{expectedRevision:1},{amountCents:0,expectedRevision:1},{occurredOn:'2023-02-29',expectedRevision:1},{periodMonth:'2024-01',expectedRevision:1},
+    {description:' ',expectedRevision:1},{direction:'X',expectedRevision:1},{amountCents:1},{isPfBusinessExpense:'true',expectedRevision:1},{explanation:'x'.repeat(2001),expectedRevision:1},null,[]])
+    assert.throws(()=>m.transactionPatchInput(bad),error=>error.status===422,JSON.stringify(bad));
+});

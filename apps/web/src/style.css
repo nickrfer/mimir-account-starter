@@ -885,3 +885,4 @@ button { -webkit-tap-highlight-color: transparent; }
 
 .reimb-panel .form-actions { margin-top: 1rem; }
 .reimb-panel .field { margin-bottom: .25rem; }
+.row-actions { display: flex; flex-wrap: wrap; gap: .2rem .8rem; }

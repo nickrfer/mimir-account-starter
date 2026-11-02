@@ -1,0 +1,279 @@
+openapi: 3.1.0
+info:
+  title: Mimir Contabilidade Lancamentos
+  version: 0.1.0
+  description: Contrato complementar do RF-04 (I12). Acrescenta consulta, listagem,
+    correcao e exclusao logica de lancamentos sem alterar openapi-jornada-inicial.yaml
+    0.5.0, cuja criacao (POST /transactions) continua valendo. Mutacoes exigem cookie de
+    sessao, X-CSRF-Token e Origin permitido, bloqueiam o espaco, comparam
+    expectedRevision e incrementam revision uma unica vez somente quando ha mudanca
+    efetiva. Pendencias automaticas sao reconciliadas no mesmo commit.
+servers:
+- url: http://localhost:3000/api/v1
+  description: Endereco local de desenvolvimento
+security:
+- sessionCookie: []
+paths:
+  /transactions:
+    get:
+      operationId: listTransactions
+      summary: Listar lancamentos do mes, ativos e excluidos
+      description: Ordenados por occurredOn e transactionId; filtra o espaco antes de
+        paginar. Nao altera revision.
+      parameters:
+      - name: periodMonth
+        in: query
+        required: true
+        schema: {$ref: '#/components/schemas/PeriodMonth'}
+      - $ref: '#/components/parameters/Cursor'
+      - $ref: '#/components/parameters/Limit'
+      responses:
+        '200':
+          description: Pagina de lancamentos. revision e lida no mesmo instante da pagina;
+            paginas com revision diferente vieram de estados diferentes do acervo e nao
+            devem ser combinadas.
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/TransactionPage'}
+        '400': {$ref: '#/components/responses/BadRequest'}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+        '403': {$ref: '#/components/responses/Forbidden'}
+        '404': {$ref: '#/components/responses/NotFound'}
+        '422': {$ref: '#/components/responses/Unprocessable'}
+        '500': {$ref: '#/components/responses/Internal'}
+  /transactions/{transactionId}:
+    parameters:
+    - name: transactionId
+      in: path
+      required: true
+      schema: {type: string, format: uuid}
+    get:
+      operationId: getTransaction
+      summary: Consultar lancamento ativo ou excluido
+      responses:
+        '200':
+          description: Lancamento
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/TransactionRecord'}
+        '400': {$ref: '#/components/responses/BadRequest'}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+        '403': {$ref: '#/components/responses/Forbidden'}
+        '404': {$ref: '#/components/responses/NotFound'}
+        '422':
+          description: INVALID_ID
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/Error'}
+        '500': {$ref: '#/components/responses/Internal'}
+    patch:
+      operationId: correctTransaction
+      summary: Corrigir campos de um lancamento ativo
+      description: Campos ausentes mantem o valor atual; o resultado passa pelas mesmas
+        regras da criacao. Sem mudanca efetiva, responde 200 com a revisao atual sem
+        incremento. Mudanca de conta, data, direcao, valor, classificacao ou marca
+        empresarial em lancamento com vinculo de reembolso ativo retorna 409
+        LINKED_TRANSACTION_CONFLICT.
+      parameters:
+      - $ref: '#/components/parameters/Csrf'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/TransactionPatch'}
+      responses:
+        '200':
+          description: Lancamento corrigido (ou inalterado)
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/TransactionMutation'}
+        '400': {$ref: '#/components/responses/BadRequest'}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+        '403': {$ref: '#/components/responses/Forbidden'}
+        '404': {$ref: '#/components/responses/NotFound'}
+        '409':
+          description: REVISION_CONFLICT, TRANSACTION_INACTIVE, ACCOUNT_INACTIVE,
+            IMPORTED_TRANSACTION_ACCOUNT_LOCKED ou LINKED_TRANSACTION_CONFLICT
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/Error'}
+        '413': {$ref: '#/components/responses/TooLarge'}
+        '415': {$ref: '#/components/responses/UnsupportedMediaType'}
+        '422':
+          description: INVALID_ID, INVALID_INPUT ou INVALID_PF_BUSINESS_EXPENSE
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/Error'}
+        '500': {$ref: '#/components/responses/Internal'}
+    delete:
+      operationId: deleteTransaction
+      summary: Excluir logicamente um lancamento ativo
+      description: O lancamento passa a EXCLUIDA, deixa a previa e novas capturas e
+        mantem documentos e historico. Lancamento ja excluido retorna 409 sem incremento.
+      parameters:
+      - $ref: '#/components/parameters/Csrf'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/RevisionInput'}
+      responses:
+        '200':
+          description: Lancamento excluido
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/TransactionMutation'}
+        '400': {$ref: '#/components/responses/BadRequest'}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+        '403': {$ref: '#/components/responses/Forbidden'}
+        '404': {$ref: '#/components/responses/NotFound'}
+        '409':
+          description: REVISION_CONFLICT, TRANSACTION_ALREADY_DELETED ou
+            LINKED_TRANSACTION_CONFLICT
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/Error'}
+        '413': {$ref: '#/components/responses/TooLarge'}
+        '415': {$ref: '#/components/responses/UnsupportedMediaType'}
+        '422':
+          description: INVALID_ID ou INVALID_INPUT
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/Error'}
+        '500': {$ref: '#/components/responses/Internal'}
+components:
+  securitySchemes:
+    sessionCookie: {type: apiKey, in: cookie, name: mimir_session}
+  parameters:
+    Csrf:
+      name: X-CSRF-Token
+      in: header
+      required: true
+      schema: {type: string, pattern: '^[0-9a-f]{64}$'}
+    Cursor:
+      name: cursor
+      in: query
+      required: false
+      description: Valor opaco devolvido em nextCursor (posicao data e id do ultimo item).
+      schema: {type: string, pattern: '^[0-9]{4}-[0-9]{2}-[0-9]{2}_[0-9a-fA-F-]{36}$'}
+    Limit:
+      name: limit
+      in: query
+      required: false
+      schema: {type: integer, minimum: 1, maximum: 200, default: 100}
+  responses:
+    BadRequest:
+      description: Requisicao malformada ou parametros nao permitidos
+      content: {application/json: {schema: {$ref: '#/components/schemas/Error'}}}
+    Unauthorized:
+      description: Sessao ausente, invalida ou expirada
+      content: {application/json: {schema: {$ref: '#/components/schemas/Error'}}}
+    Forbidden:
+      description: CSRF ou origem invalida
+      content: {application/json: {schema: {$ref: '#/components/schemas/Error'}}}
+    NotFound:
+      description: Objeto ausente ou de outro proprietario
+      content: {application/json: {schema: {$ref: '#/components/schemas/Error'}}}
+    TooLarge:
+      description: Corpo excede limite
+      content: {application/json: {schema: {$ref: '#/components/schemas/Error'}}}
+    UnsupportedMediaType:
+      description: Exigido JSON UTF-8
+      content: {application/json: {schema: {$ref: '#/components/schemas/Error'}}}
+    Unprocessable:
+      description: Conteudo invalido
+      content: {application/json: {schema: {$ref: '#/components/schemas/Error'}}}
+    Internal:
+      description: Erro interno sanitizado
+      content: {application/json: {schema: {$ref: '#/components/schemas/Error'}}}
+  schemas:
+    Error:
+      type: object
+      properties:
+        code: {type: string, minLength: 1}
+        message: {type: string, minLength: 1}
+        requestId: {type: string, minLength: 1}
+      required: [code, message, requestId]
+      additionalProperties: false
+    PeriodMonth:
+      type: string
+      pattern: ^(19[0-9]{2}|[2-9][0-9]{3})-(0[1-9]|1[0-2])$
+    Revision:
+      type: integer
+      minimum: 1
+      maximum: 9007199254740991
+    RevisionInput:
+      type: object
+      properties:
+        expectedRevision: {$ref: '#/components/schemas/Revision'}
+      required: [expectedRevision]
+      additionalProperties: false
+    TransactionPatch:
+      type: object
+      description: Pelo menos um campo alem de expectedRevision.
+      minProperties: 2
+      properties:
+        accountId: {type: string, format: uuid}
+        occurredOn: {type: string, format: date}
+        direction: {type: string, enum: [ENTRADA, SAIDA]}
+        amountCents: {type: integer, minimum: 1, maximum: 99999999999}
+        description: {type: string, minLength: 1, maxLength: 500}
+        category: {type: string, minLength: 1, maxLength: 100}
+        classification: {type: string, enum: [RECEITA, DESPESA, TRANSFERENCIA, A_ESCLARECER]}
+        isPfBusinessExpense: {type: boolean}
+        explanation: {type: string, maxLength: 2000}
+        expectedRevision: {$ref: '#/components/schemas/Revision'}
+      required: [expectedRevision]
+      additionalProperties: false
+    TransactionRecord:
+      type: object
+      properties:
+        transactionId: {type: string, format: uuid}
+        accountId: {type: string, format: uuid}
+        accountName: {type: string, minLength: 1, maxLength: 200}
+        accountType: {type: string, enum: [PF, PJ]}
+        occurredOn: {type: string, format: date}
+        periodMonth: {$ref: '#/components/schemas/PeriodMonth'}
+        direction: {type: string, enum: [ENTRADA, SAIDA]}
+        amountCents: {type: integer, minimum: 1, maximum: 99999999999}
+        descriptionOriginal: {type: string, minLength: 1, maxLength: 500}
+        categoryOriginal: {type: string, minLength: 1, maxLength: 100}
+        classification: {type: string, enum: [RECEITA, DESPESA, TRANSFERENCIA, A_ESCLARECER]}
+        isPfBusinessExpense: {type: boolean}
+        explanationOriginal: {type: string, maxLength: 2000}
+        sourceType: {type: string, enum: [MANUAL, CSV]}
+        sourceCode: {type: string, minLength: 1, maxLength: 80}
+        externalId: {type: string, minLength: 1, maxLength: 200}
+        documentIds:
+          type: array
+          items: {type: string, format: uuid}
+          uniqueItems: true
+          maxItems: 1000
+        status: {type: string, enum: [ATIVA, EXCLUIDA]}
+        reimbursementLinkId:
+          type: [string, 'null']
+          format: uuid
+      required: [transactionId, accountId, accountName, accountType, occurredOn, periodMonth, direction, amountCents,
+        descriptionOriginal, categoryOriginal, classification, isPfBusinessExpense, explanationOriginal, sourceType,
+        sourceCode, externalId, documentIds, status, reimbursementLinkId]
+      additionalProperties: false
+    TransactionMutation:
+      type: object
+      properties:
+        transaction: {$ref: '#/components/schemas/TransactionRecord'}
+        revision: {$ref: '#/components/schemas/Revision'}
+      required: [transaction, revision]
+      additionalProperties: false
+    TransactionPage:
+      type: object
+      properties:
+        items:
+          type: array
+          maxItems: 200
+          items: {$ref: '#/components/schemas/TransactionRecord'}
+        nextCursor:
+          type: [string, 'null']
+          pattern: '^[0-9]{4}-[0-9]{2}-[0-9]{2}_[0-9a-fA-F-]{36}$'
+        revision: {$ref: '#/components/schemas/Revision'}
+      required: [items, nextCursor, revision]
+      additionalProperties: false
