@@ -50,7 +50,7 @@ try {
     await eventually(() => http('http://api:3000', '/ready', 200));
     await http('http://api:3000', '/health', 200);
     const indexHtml = await http('http://api:3000', '/', 200);
-    assert.match(indexHtml, /Mimir Account/);
+    assert.match(indexHtml, /Mimir Contabilidade/);
     const jsAsset = /src="(\/assets\/[^"]+\.js)"/.exec(indexHtml)?.[1];
     const cssAsset = /href="(\/assets\/[^"]+\.css)"/.exec(indexHtml)?.[1];
     assert.ok(jsAsset && cssAsset, 'SPA asset paths missing in index.html');

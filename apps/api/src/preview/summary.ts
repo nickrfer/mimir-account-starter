@@ -1,7 +1,9 @@
-import type { CashAccount, CategoryTotal, PreviewPending, PreviewSummary, PreviewTransaction } from '../ports/preview.js';
+import type { CashAccount, CategoryTotal, PreviewPending, PreviewSummary, PreviewTransaction, ReimbursementLink } from '../ports/preview.js';
+import { settledInPeriodCents } from '../domain/reimbursements.js';
 
 // Only the month's principal selection is accepted here; context never feeds totals.
-export function summarizePeriod(transactions: readonly PreviewTransaction[], pendingItems: readonly PreviewPending[]): PreviewSummary {
+export function summarizePeriod(transactions: readonly PreviewTransaction[], pendingItems: readonly PreviewPending[],
+  links: readonly Pick<ReimbursementLink, 'pjReimbursementTransactionId' | 'amountCents'>[] = []): PreviewSummary {
   const accounts = new Map<string, CashAccount>(), categories = new Map<string, CategoryTotal>();
   let businessRevenueTotalCents = 0, businessExpenseTotalCents = 0;
   for (const transaction of transactions) {
@@ -24,7 +26,7 @@ export function summarizePeriod(transactions: readonly PreviewTransaction[], pen
   }
   return {
     cashFlowByAccount: [...accounts.values()].sort((a,b) => Buffer.compare(Buffer.from(a.accountId), Buffer.from(b.accountId))),
-    businessRevenueTotalCents, businessExpenseTotalCents, reimbursementsSettledInPeriodCents: 0,
+    businessRevenueTotalCents, businessExpenseTotalCents, reimbursementsSettledInPeriodCents: settledInPeriodCents(new Set(transactions.map(t => t.transactionId)), links),
     pendingCount: pendingItems.filter(item => item.status === 'PENDENTE').length,
     justifiedCount: pendingItems.filter(item => item.status === 'JUSTIFICADA').length,
     categoryTotals: [...categories.values()].sort((a,b) => Buffer.compare(Buffer.from(a.category), Buffer.from(b.category)))

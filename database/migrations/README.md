@@ -7,3 +7,5 @@
 Administrador provisiona papéis/schema; migrador aplica SQL ordenado sob transação/advisory lock e rastreia versão/SHA-256. Repetição não reaplica, checksum divergente aborta e falha reverte DDL/histórico juntos. Na raiz: docker compose run --build --rm admin migrate. Sem cascatas destrutivas ou credenciais no SQL. Snapshots/executor ficam para etapas posteriores.
 
 005_document_pending_reconciliation.sql concede somente UPDATE(status,justification,updated_at) em pending_items para reconciliação no upload. Tipo/descrição/identidade permanecem protegidos; documentos continuam somente INSERT/SELECT. Migrações 001–004 preservadas.
+
+008_reimbursement_links.sql, de I11, cria vínculos de reembolso com FKs compostas por participante, índices únicos parciais por participante ativo, trigger de validação de participantes, trigger que só permite ATIVO→DESFEITO e trigger transaction_reimbursement_guard, que rejeita mudança de conta, data, mês, direção, valor, classificação, marca empresarial ou status de movimentação com vínculo ativo (texto continua editável). Runtime recebe SELECT/INSERT e UPDATE(status, undone_at); sem DELETE/TRUNCATE.

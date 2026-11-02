@@ -119,12 +119,43 @@ export function nextMonthAction({ loaded, accounts, preview, deliveries }) {
     (item) => item.status === 'PENDENTE' && item.pendingType === 'DOCUMENTO_AUSENTE'
   );
   if (missingDocument) return { kind: 'document', transactionId: missingDocument.transactionId };
+  const pendingReimbursement = preview.pendingItems.find(
+    (item) => item.status === 'PENDENTE' && item.pendingType === 'REEMBOLSO_PF_PENDENTE'
+  );
+  if (pendingReimbursement) return { kind: 'reimbursement', transactionId: pendingReimbursement.transactionId };
   if (preview.pendingItems.some((item) => item.status === 'PENDENTE')) return { kind: 'review' };
   const latest = deliveries.reduce((current, item) => !current || item.versionNumber > current.versionNumber ? item : current, null);
   if (!latest) return { kind: 'capture' };
   if (latest.status === 'EM_FILA' || latest.status === 'EM_PROCESSAMENTO') return { kind: 'delivery' };
   if (latest.status === 'PRONTA' && latest.capturedRevision === preview.revision) return { kind: 'delivery' };
   return { kind: 'capture' };
+}
+
+const REIMBURSEMENT_STATUS_LABELS = {
+  NAO_APLICAVEL: 'Não se aplica',
+  PENDENTE_REEMBOLSO: 'Reembolso pendente',
+  REEMBOLSADA_NO_MES: 'Reembolsada no mês',
+  REEMBOLSADA_OUTRO_MES: 'Reembolsada em outro mês',
+  LIQUIDACAO_DE_REEMBOLSO: 'Liquidação de reembolso',
+};
+
+const ROLE_IN_PERIOD_LABELS = {
+  DESPESA_ORIGEM_NO_PERIODO: 'Despesa de origem neste mês',
+  REEMBOLSO_PJ_NO_PERIODO: 'Reembolso PJ neste mês',
+  AMBOS_NO_PERIODO: 'Despesa e reembolso neste mês',
+  ENTRADA_PF_NO_PERIODO: 'Entrada PF neste mês',
+};
+
+export function reimbursementStatusLabel(status) {
+  return Object.hasOwn(REIMBURSEMENT_STATUS_LABELS, status) ? REIMBURSEMENT_STATUS_LABELS[status] : status;
+}
+
+export function roleInPeriodLabel(role) {
+  return Object.hasOwn(ROLE_IN_PERIOD_LABELS, role) ? ROLE_IN_PERIOD_LABELS[role] : role;
+}
+
+export function compatibleInflows(inflows, outflowDate) {
+  return inflows.filter((item) => item.occurredOn >= outflowDate);
 }
 
 export function generateIdempotencyKey() {

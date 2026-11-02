@@ -11,8 +11,9 @@ export interface ManualTransaction {
   direction: Direction; amountCents: number; descriptionOriginal: string; categoryOriginal: string;
   classification: Classification; isPfBusinessExpense: boolean; explanationOriginal: string;
   sourceType: 'MANUAL'; sourceCode: 'MANUAL'; externalId: string; documentIds: string[];
-  reimbursementStatus: 'NAO_APLICAVEL' | 'PENDENTE_REEMBOLSO';
+  reimbursementStatus: ReimbursementStatus;
 }
+export type ReimbursementStatus = 'NAO_APLICAVEL' | 'PENDENTE_REEMBOLSO' | 'REEMBOLSADA_NO_MES' | 'REEMBOLSADA_OUTRO_MES' | 'LIQUIDACAO_DE_REEMBOLSO';
 export interface TransactionsPort {
   create(actor: WorkspaceActor, command: CreateTransaction): Promise<{transaction:ManualTransaction;revision:number}>;
   close(): Promise<void>;
