@@ -1,5 +1,5 @@
 param(
-    [Parameter(Mandatory)][ValidateSet('C01','C03','C04')][string]$Scenario,
+    [Parameter(Mandatory)][ValidateSet('C01','C03','C04','C05')][string]$Scenario,
     [switch]$KeepRunning
 )
 $ErrorActionPreference = 'Stop'
@@ -29,7 +29,7 @@ $started = Get-Date
 & docker @compose run --rm @mounts @envs --entrypoint node admin "tools/avaliacao/$($Scenario.ToLower()).mjs" 2>&1 | Tee-Object -FilePath "$config/scenario.log" | Select-String -Pattern '^(EVAL|CASE-FAIL|VERDICT|ERROR)'
 $code = $LASTEXITCODE
 Write-Output ("Duração: {0:N0} s; código {1}" -f ((Get-Date) - $started).TotalSeconds, $code)
-if (Test-Path "$out/result.json") {
+if ($Scenario -eq 'C05') { Write-Output "Pacote do C05 em $out" } elseif (Test-Path "$out/result.json") {
     [void](New-Item -ItemType Directory -Path 'docs/avaliacao/resultados' -Force)
     Copy-Item "$out/result.json" "docs/avaliacao/resultados/$Scenario.json" -Force
     if (Test-Path "$out/result.md") { Copy-Item "$out/result.md" "docs/avaliacao/resultados/$Scenario.md" -Force }

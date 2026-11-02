@@ -122,3 +122,11 @@ O critério de `docs/requirements.md` (nenhuma mistura; snapshot consistente ou 
 - **Em ambos**: v1 byte a byte igual. Qualquer outra combinação reprova.
 
 O C01 é repetido integralmente com as verificações corrigidas.
+
+### E2 — C06, nome da coluna de medição — 02/11/2026, antes da coleta do C06
+
+A §7 cita `delivery_packages.published_at`; a coluna real do instante de publicação é `delivery_packages.created_at` (migração 007), gravada no mesmo commit que marca a operação PRONTA. A medição é a mesma: `delivery_packages.created_at − delivery_operations.created_at`, no relógio do banco.
+
+### E3 — C05, combinação Windows — 02/11/2026, durante a coleta, por decisão do usuário
+
+A instalação do LibreOffice no Windows (winget, autorizada) ficou aguardando elevação de privilégio e foi cancelada por decisão do usuário. A combinação Windows/Firefox/LibreOffice é executada **sem o LibreOffice**: no Windows, o resumo é aberto no Firefox offline; a leitura do `movimentacoes.csv` por planilha é conferida apenas no LibreOffice do lado Linux (contêiner Debian 12, LibreOffice 7.4.7.2, sem rede). Desvio declarado; o C05 é reportado como atendido apenas com esse desvio. Nenhuma biblioteca substitui o LibreOffice na conferência.

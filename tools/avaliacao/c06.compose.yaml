@@ -1,0 +1,12 @@
+services:
+  api:
+    cpuset: '0,1'
+    mem_limit: 2g
+    memswap_limit: 2g
+  db:
+    cpuset: '0,1'
+    mem_limit: 2g
+    memswap_limit: 2g
+  admin:
+    cpuset: '2,3'
+    networks: [database, frontend]
