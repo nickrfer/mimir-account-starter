@@ -3,7 +3,7 @@ import { civilDate } from '../domain/values.js';
 import { ApiError } from '../http/error.js';
 import type { Classification, CreateTransaction, Direction, PatchTransaction } from '../ports/transactions.js';
 const invalid = () => new ApiError(422,'INVALID_INPUT','Dados inválidos');
-const normalized = (value: unknown,min: number,max: number): string => text(text(value,min,max).normalize('NFC').replace(/\r\n?/g,'\n').trim(),min,max);
+export const normalized = (value: unknown,min: number,max: number): string => text(text(value,min,max).normalize('NFC').replace(/\r\n?/g,'\n').trim(),min,max);
 function enumValue<T extends string>(value: unknown, choices: readonly T[]): T {
   if(typeof value!=='string'||!choices.includes(value as T))throw invalid();
   return value as T;

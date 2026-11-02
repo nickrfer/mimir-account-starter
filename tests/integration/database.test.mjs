@@ -49,7 +49,7 @@ test('PostgreSQL real: I01', async t => {
     await writeFile(join(dir, '002_failure.sql'), 'CREATE TABLE mimir.rollback_probe(id int); SELECT nonexistent_column;');
     await assert.rejects(migrate(undefined, pathToFileURL(dir + '/')), error => error.code === '42703');
     assert.equal((await admin.query("SELECT to_regclass('mimir.rollback_probe') IS NULL AS absent")).rows[0].absent, true);
-    assert.equal((await admin.query("SELECT count(*)::int AS n FROM mimir.schema_migrations")).rows[0].n, 8);
+    assert.equal((await admin.query("SELECT count(*)::int AS n FROM mimir.schema_migrations")).rows[0].n, 9);
   });
   await t.test('runtime is not privileged, owner, or migrator member', async () => {
     const role = (await runtime.query(`SELECT rolsuper,rolcreatedb,rolcreaterole,rolreplication,rolbypassrls,

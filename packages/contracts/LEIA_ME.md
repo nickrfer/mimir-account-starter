@@ -13,3 +13,5 @@ openapi-lancamentos.yaml (OpenAPI 3.1, info.version 0.1.0) é contrato complemen
 csv-import-v1.schema.json, importacao_exemplo.csv, importacao_normalizada.json e vetores-fingerprint.json foram preservados. vetores-totalizacao.json acrescenta quatro casos de domínio e não representa transações completas de manifesto. A conferência dos tipos não substitui somas, referências, pertença ao mês ou autorização.
 
 Os schemas e o OpenAPI são contratos declarativos, não código da aplicação. O domínio .invalid identifica esquema local, não serviço publicado. O aplicativo e seu verificador CLI continuam pendentes de implementação.
+
+openapi-pendencias.yaml (OpenAPI 3.1, info.version 0.1.0) é contrato complementar do RF-08, implementado no I13: listar pendências do mês, registrar dúvida manual e justificar, resolver, reabrir ou editar pendências. Não altera openapi-jornada-inicial.yaml, openapi-reembolsos.yaml nem openapi-lancamentos.yaml; manifesto v2 e fixtures permanecem com os mesmos bytes.

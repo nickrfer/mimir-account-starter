@@ -98,7 +98,12 @@ test('I10 web: next action follows actual month state and never calls an old del
   assert.deepEqual(nextMonthAction({ ...base, preview: { ...base.preview, pendingItems: [pfPending, documentPending] } }), { kind: 'document', transactionId: 'tx-1' });
   assert.deepEqual(nextMonthAction({ ...base, preview: { ...base.preview, pendingItems: [pfPending] } }), { kind: 'reimbursement', transactionId: 'tx-1' });
   const doubt = { transactionId: 'tx-1', pendingType: 'DUVIDA_CADASTRADA', status: 'PENDENTE' };
-  assert.deepEqual(nextMonthAction({ ...base, preview: { ...base.preview, pendingItems: [doubt] } }), { kind: 'review' });
+  assert.deepEqual(nextMonthAction({ ...base, preview: { ...base.preview, pendingItems: [doubt] } }), { kind: 'question', transactionId: 'tx-1' });
+  assert.deepEqual(nextMonthAction({ ...base, preview: { ...base.preview, pendingItems: [doubt, pfPending] } }), { kind: 'reimbursement', transactionId: 'tx-1' });
+  assert.deepEqual(nextMonthAction({ ...base, preview: { ...base.preview, pendingItems: [doubt, documentPending] } }), { kind: 'document', transactionId: 'tx-1' });
+  const classification = { transactionId: 'tx-1', pendingType: 'CLASSIFICACAO_A_ESCLARECER', status: 'PENDENTE' };
+  assert.deepEqual(nextMonthAction({ ...base, preview: { ...base.preview, pendingItems: [classification, { ...doubt, transactionId: 'tx-2' }] } }), { kind: 'review' });
+  assert.deepEqual(nextMonthAction({ ...base, preview: { ...base.preview, pendingItems: [{ ...doubt, status: 'JUSTIFICADA' }] } }), { kind: 'capture' });
   assert.deepEqual(nextMonthAction({ ...base, preview: { ...base.preview, pendingItems: [{ ...pfPending, status: 'JUSTIFICADA' }] } }), { kind: 'capture' });
   assert.deepEqual(nextMonthAction(base), { kind: 'capture' });
   for (const status of ['EM_FILA', 'EM_PROCESSAMENTO']) {
@@ -137,6 +142,8 @@ test('I10 web: compiled SPA bundle exposes complete first-journey endpoints and 
     '/api/v1/operations/',
     '/package',
     '/manifest',
+    '/questions',
+    '/api/v1/pending-items/',
     'Idempotency-Key',
     'X-CSRF-Token',
   ]) {
@@ -185,4 +192,56 @@ test('I12 web: patch parcial de lancamento e campos bloqueados para vinculados',
   assert.deepEqual(buildTransactionPatch(original, { ...original, isPfBusinessExpense: true, occurredOn: '2026-10-06' }), { occurredOn: '2026-10-06', isPfBusinessExpense: true });
   assert.deepEqual(lockedFieldsForLinked(true), ['accountId', 'occurredOn', 'direction', 'amountCents', 'classification', 'isPfBusinessExpense']);
   assert.deepEqual(lockedFieldsForLinked(false), []);
+});
+
+test('I13 web: validacao de texto de pendencia (3 a 2.000 caracteres apos trim)', async () => {
+  const { validatePendingText } = await import('../../apps/web/src/ledger.mjs');
+  assert.deepEqual(validatePendingText('  abc  '), { value: 'abc', error: null });
+  assert.equal(validatePendingText('a'.repeat(2000)).error, null);
+  assert.equal(validatePendingText(`  ${'a'.repeat(2000)}  `).error, null);
+  for (const invalid of ['', '  ', 'ab', '  ab  ', 'a'.repeat(2001), `  ${'a'.repeat(2001)}`, null, undefined, 12]) {
+    const result = validatePendingText(invalid);
+    assert.equal(typeof result.error, 'string', `Expected error for ${String(invalid).slice(0, 10)}`);
+    assert.match(result.error, /3 a 2\.000/);
+  }
+});
+
+test('I13 web: matriz de acoes permitidas por tipo e estado da pendencia', async () => {
+  const { allowedPendingActions } = await import('../../apps/web/src/ledger.mjs');
+  for (const pendingType of ['DOCUMENTO_AUSENTE', 'CLASSIFICACAO_A_ESCLARECER', 'REEMBOLSO_PF_PENDENTE']) {
+    assert.deepEqual(allowedPendingActions({ pendingType, status: 'PENDENTE' }), ['JUSTIFY'], `${pendingType} PENDENTE`);
+    assert.deepEqual(allowedPendingActions({ pendingType, status: 'JUSTIFICADA' }), ['JUSTIFY'], `${pendingType} JUSTIFICADA`);
+    assert.deepEqual(allowedPendingActions({ pendingType, status: 'RESOLVIDA' }), [], `${pendingType} RESOLVIDA`);
+  }
+  const doubt = 'DUVIDA_CADASTRADA';
+  assert.deepEqual(allowedPendingActions({ pendingType: doubt, status: 'PENDENTE' }), ['JUSTIFY', 'EDIT', 'RESOLVE']);
+  assert.deepEqual(allowedPendingActions({ pendingType: doubt, status: 'JUSTIFICADA' }), ['JUSTIFY', 'EDIT', 'RESOLVE', 'REOPEN']);
+  assert.deepEqual(allowedPendingActions({ pendingType: doubt, status: 'RESOLVIDA' }), ['REOPEN']);
+  assert.deepEqual(allowedPendingActions({ pendingType: doubt, status: 'DESCONHECIDO' }), []);
+  assert.deepEqual(allowedPendingActions(null), []);
+});
+
+test('I13 web: deteccao de duvida existente por lancamento e mensagens de erro de pendencia', async () => {
+  const { hasQuestion, describeApiError, describePendingError } = await import('../../apps/web/src/ledger.mjs');
+  const items = [
+    { transactionId: 'tx-1', pendingType: 'DOCUMENTO_AUSENTE', status: 'PENDENTE' },
+    { transactionId: 'tx-2', pendingType: 'DUVIDA_CADASTRADA', status: 'RESOLVIDA' },
+  ];
+  assert.equal(hasQuestion(items, 'tx-1'), false);
+  assert.equal(hasQuestion(items, 'tx-2'), true);
+  assert.equal(hasQuestion(items, 'tx-3'), false);
+  assert.equal(hasQuestion([], 'tx-1'), false);
+  const expected = {
+    REVISION_CONFLICT: 'O caderno mudou desde que você abriu este painel. Confira a visão atualizada e repita a ação.',
+    TRANSACTION_INACTIVE: 'Este lançamento foi excluído e não aceita mais alterações de pendência.',
+    PENDING_RESOLVED: 'Esta pendência já está resolvida. Reabra a dúvida antes de justificar ou editar.',
+    PENDING_AUTOMATIC: 'Pendências automáticas não podem ser resolvidas, reabertas ou editadas. Elimine a causa para que elas se resolvam.',
+    QUESTION_ALREADY_EXISTS: 'Este lançamento já tem uma dúvida registrada. Edite ou reabra a dúvida existente.',
+  };
+  for (const [code, message] of Object.entries(expected)) {
+    const payload = { code, message: 'texto do servidor', requestId: 'r1' };
+    assert.deepEqual(describePendingError(409, payload), { code, message, requestId: 'r1' });
+    assert.equal(describeApiError(409, payload).message, 'texto do servidor', `${code} nao pode vazar para outros fluxos`);
+  }
+  assert.equal(describeApiError(409, { code: 'OUTRO', message: 'texto do servidor' }).message, 'texto do servidor');
 });

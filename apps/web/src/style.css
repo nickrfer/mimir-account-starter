@@ -401,7 +401,8 @@ button { -webkit-tap-highlight-color: transparent; }
 }
 
 .field input,
-.field select {
+.field select,
+.field textarea {
   padding: 0.48rem 0.6rem;
   min-height: 2.75rem;
   border: 1px solid var(--border-strong);
@@ -413,6 +414,7 @@ button { -webkit-tap-highlight-color: transparent; }
 
 .field input:focus,
 .field select:focus,
+.field textarea:focus,
 .btn:focus-visible {
   outline: 2px solid var(--accent-seal);
   outline-offset: 1px;
@@ -885,4 +887,10 @@ button { -webkit-tap-highlight-color: transparent; }
 
 .reimb-panel .form-actions { margin-top: 1rem; }
 .reimb-panel .field { margin-bottom: .25rem; }
+.field textarea { min-height: 6rem; width: 100%; max-width: 100%; box-sizing: border-box; font-family: inherit; line-height: 1.4; resize: vertical; }
+.char-count { align-self: flex-end; color: var(--ink-muted); font-size: .78rem; }
+.char-count-over { color: var(--err-ink); }
+.pending-actions { display: flex; flex-wrap: wrap; align-items: center; gap: .5rem; max-width: 100%; }
+.pending-note { margin: 0; color: var(--ink-muted); font-size: .8rem; overflow-wrap: anywhere; }
+.pending-actions .pending-guidance { max-width: 100%; overflow-wrap: anywhere; }
 .row-actions { display: flex; flex-wrap: wrap; gap: .2rem .8rem; }
