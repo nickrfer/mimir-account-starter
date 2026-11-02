@@ -1,0 +1,227 @@
+openapi: 3.1.0
+info:
+  title: Mimir Contabilidade Importacao CSV
+  version: 0.1.0
+  description: Contrato complementar do RF-03 (I16). Previa e confirmacao de importacao
+    de CSV no formato mimir.csv.import.v1 (docs/domain.md 3.4), sem alterar
+    openapi-jornada-inicial.yaml 0.5.0, openapi-lancamentos.yaml, openapi-reembolsos.yaml,
+    openapi-pendencias.yaml, openapi-documentos.yaml nem csv-import-v1.schema.json.
+    Identidade de origem (espaco, conta, sourceCode, externalId); fingerprint SHA-256 do
+    array JSON [1, occurredOn, direction, amountCents, description, category,
+    classification, isPfBusinessExpense, explanation] normalizado (vetores em
+    vetores-fingerprint.json). A previa nao grava nem altera revision. A confirmacao
+    reenvia o arquivo, confere o hash, revalida sob bloqueio do espaco e grava o lote
+    inteiro ou nada. Ordem da confirmacao - comando (400/413/415/422), hash (422), estrutura
+    do CSV (422), conta (404/409), linhas invalidas (422), conflitos (409), sem linhas
+    novas (200 sem gravar e sem alterar revision), revisao (409), gravacao (201).
+servers:
+- url: http://localhost:3000/api/v1
+  description: Endereco local de desenvolvimento
+security:
+- sessionCookie: []
+paths:
+  /imports/preview:
+    post:
+      operationId: previewCsvImport
+      summary: Pre-visualizar importacao de CSV sem gravar
+      description: Leitura consistente; classifica cada linha e devolve o hash SHA-256 dos
+        bytes recebidos. Exige sessao; nao exige CSRF por nao alterar estado, mas Origin,
+        quando presente, deve ser permitido.
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema: {$ref: '#/components/schemas/PreviewInput'}
+      responses:
+        '200':
+          description: Previa classificada
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/ImportPreview'}
+        '400': {$ref: '#/components/responses/BadRequest'}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+        '403': {$ref: '#/components/responses/Forbidden'}
+        '404': {$ref: '#/components/responses/NotFound'}
+        '409':
+          description: ACCOUNT_INACTIVE
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/Error'}
+        '413': {$ref: '#/components/responses/TooLarge'}
+        '415': {$ref: '#/components/responses/UnsupportedMediaType'}
+        '422':
+          description: INVALID_INPUT (campos do comando) ou INVALID_CSV (codificacao,
+            cabecalho, colunas, aspas, limite de linhas; mensagem traz a linha)
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/Error'}
+        '429': {$ref: '#/components/responses/TooMany'}
+        '500': {$ref: '#/components/responses/Internal'}
+  /imports/confirm:
+    post:
+      operationId: confirmCsvImport
+      summary: Confirmar importacao de CSV (lote inteiro ou nada)
+      parameters:
+      - $ref: '#/components/parameters/Csrf'
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema: {$ref: '#/components/schemas/ConfirmInput'}
+      responses:
+        '200':
+          description: Nenhuma linha nova (todas ignoradas ou repetidas); nada gravado e
+            revision inalterada
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/ImportConfirmation'}
+        '201':
+          description: Linhas novas gravadas; revision incrementada uma vez
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/ImportConfirmation'}
+        '400': {$ref: '#/components/responses/BadRequest'}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+        '403': {$ref: '#/components/responses/Forbidden'}
+        '404': {$ref: '#/components/responses/NotFound'}
+        '409':
+          description: ACCOUNT_INACTIVE, IMPORT_CONFLICT ou REVISION_CONFLICT
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/Error'}
+        '413': {$ref: '#/components/responses/TooLarge'}
+        '415': {$ref: '#/components/responses/UnsupportedMediaType'}
+        '422':
+          description: INVALID_INPUT, FILE_HASH_MISMATCH, INVALID_CSV ou IMPORT_INVALID_ROWS
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/Error'}
+        '429': {$ref: '#/components/responses/TooMany'}
+        '500': {$ref: '#/components/responses/Internal'}
+components:
+  securitySchemes:
+    sessionCookie: {type: apiKey, in: cookie, name: mimir_session}
+  parameters:
+    Csrf:
+      name: X-CSRF-Token
+      in: header
+      required: true
+      schema: {type: string, pattern: '^[0-9a-f]{64}$'}
+  responses:
+    BadRequest:
+      description: Requisicao malformada ou parametros nao permitidos
+      content: {application/json: {schema: {$ref: '#/components/schemas/Error'}}}
+    Unauthorized:
+      description: Sessao ausente, invalida ou expirada
+      content: {application/json: {schema: {$ref: '#/components/schemas/Error'}}}
+    Forbidden:
+      description: CSRF ou origem invalida
+      content: {application/json: {schema: {$ref: '#/components/schemas/Error'}}}
+    NotFound:
+      description: Conta ausente ou de outro proprietario
+      content: {application/json: {schema: {$ref: '#/components/schemas/Error'}}}
+    TooLarge:
+      description: Arquivo acima de 1 MiB ou corpo acima do limite
+      content: {application/json: {schema: {$ref: '#/components/schemas/Error'}}}
+    UnsupportedMediaType:
+      description: Exigido multipart/form-data
+      content: {application/json: {schema: {$ref: '#/components/schemas/Error'}}}
+    TooMany:
+      description: UPLOAD_LIMIT (Retry-After 1)
+      content: {application/json: {schema: {$ref: '#/components/schemas/Error'}}}
+    Internal:
+      description: Erro interno sanitizado
+      content: {application/json: {schema: {$ref: '#/components/schemas/Error'}}}
+  schemas:
+    Error:
+      type: object
+      properties:
+        code: {type: string, minLength: 1}
+        message: {type: string, minLength: 1}
+        requestId: {type: string, minLength: 1}
+      required: [code, message, requestId]
+      additionalProperties: false
+    PeriodMonth:
+      type: string
+      pattern: ^(19[0-9]{2}|[2-9][0-9]{3})-(0[1-9]|1[0-2])$
+    Revision:
+      type: integer
+      minimum: 1
+      maximum: 9007199254740991
+    Sha256:
+      type: string
+      pattern: ^[0-9a-f]{64}$
+    PreviewInput:
+      type: object
+      properties:
+        file: {type: string, contentMediaType: text/csv, description: 'CSV UTF-8, ate 1 MiB e 1.000 linhas de dados'}
+        accountId: {type: string, format: uuid}
+        sourceCode: {type: string, minLength: 1, maxLength: 80, description: 'Normalizado NFC sem espacos nas pontas; sem caracteres de controle'}
+        periodMonth: {$ref: '#/components/schemas/PeriodMonth'}
+      required: [file, accountId, sourceCode, periodMonth]
+      additionalProperties: false
+    ConfirmInput:
+      type: object
+      properties:
+        file: {type: string, contentMediaType: text/csv}
+        accountId: {type: string, format: uuid}
+        sourceCode: {type: string, minLength: 1, maxLength: 80}
+        periodMonth: {$ref: '#/components/schemas/PeriodMonth'}
+        expectedFileHash: {$ref: '#/components/schemas/Sha256'}
+        expectedRevision: {type: string, pattern: '^[1-9][0-9]{0,15}$'}
+      required: [file, accountId, sourceCode, periodMonth, expectedFileHash, expectedRevision]
+      additionalProperties: false
+    ImportRow:
+      type: object
+      properties:
+        line: {type: integer, minimum: 2, description: 'Linha fisica do registro no arquivo (cabecalho e a linha 1)'}
+        externalId: {type: [string, 'null'], maxLength: 200}
+        status: {type: string, enum: [NOVA, IGNORADA, REPETIDA, CONFLITO, INVALIDA]}
+        code:
+          type: [string, 'null']
+          description: Motivo para CONFLITO (DUPLICATE_KEY_DIFFERENT_CONTENT, ORIGIN_CHANGED,
+            ORIGIN_DELETED) ou INVALIDA (INVALID_FIELD, OUT_OF_PERIOD, INVALID_RULE)
+        message: {type: [string, 'null']}
+        fingerprint: {oneOf: [{$ref: '#/components/schemas/Sha256'}, {type: 'null'}]}
+      required: [line, externalId, status, code, message, fingerprint]
+      additionalProperties: false
+    ImportTotals:
+      type: object
+      properties:
+        rows: {type: integer, minimum: 1, maximum: 1000}
+        new: {type: integer, minimum: 0}
+        ignored: {type: integer, minimum: 0}
+        repeated: {type: integer, minimum: 0}
+        conflicting: {type: integer, minimum: 0}
+        invalid: {type: integer, minimum: 0}
+      required: [rows, new, ignored, repeated, conflicting, invalid]
+      additionalProperties: false
+    ImportPreview:
+      type: object
+      properties:
+        fileHash: {$ref: '#/components/schemas/Sha256'}
+        revision: {$ref: '#/components/schemas/Revision'}
+        accountId: {type: string, format: uuid}
+        sourceCode: {type: string, minLength: 1, maxLength: 80}
+        periodMonth: {$ref: '#/components/schemas/PeriodMonth'}
+        sourceCodeKnown: {type: boolean, description: 'false quando a conta nunca importou desta fonte'}
+        totals: {$ref: '#/components/schemas/ImportTotals'}
+        rows:
+          type: array
+          maxItems: 1000
+          items: {$ref: '#/components/schemas/ImportRow'}
+      required: [fileHash, revision, accountId, sourceCode, periodMonth, sourceCodeKnown, totals, rows]
+      additionalProperties: false
+    ImportConfirmation:
+      type: object
+      properties:
+        batchId: {type: [string, 'null'], format: uuid}
+        fileHash: {$ref: '#/components/schemas/Sha256'}
+        totals: {$ref: '#/components/schemas/ImportTotals'}
+        transactionIds:
+          type: array
+          maxItems: 1000
+          items: {type: string, format: uuid}
+        revision: {$ref: '#/components/schemas/Revision'}
+      required: [batchId, fileHash, totals, transactionIds, revision]
+      additionalProperties: false

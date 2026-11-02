@@ -10,6 +10,7 @@ import {
   defaultDateForMonth,
   describeApiError,
   describeDocumentError,
+  describeImportError,
   describePendingError,
   documentsByTransaction,
   formatBrlCents,
@@ -18,6 +19,9 @@ import {
   hasQuestion,
   isValidPeriodMonth,
   linkableDocuments,
+  importReady,
+  importReasonLabel,
+  importStatusLabel,
   lockedFieldsForLinked,
   nextVersionRequiresReason,
   nextMonthAction,
@@ -27,9 +31,10 @@ import {
   compatibleInflows,
   shiftPeriodMonth,
   validateDocumentFile,
+  validateImportFile,
   validatePendingText,
 } from './ledger.mjs';
-import type { AccountType, Classification, Direction, PendingAction } from './ledger.mjs';
+import type { AccountType, Classification, Direction, ImportTotals, PendingAction } from './ledger.mjs';
 
 interface SessionContext {
   userId: string;
@@ -130,6 +135,38 @@ interface PeriodDocument {
 type DocumentPanelState =
   | { kind: 'replace' | 'unlink'; transactionId: string; documentId: string }
   | { kind: 'link'; transactionId: string };
+
+interface ImportPreviewRow {
+  line: number;
+  externalId: string | null;
+  status: string;
+  code: string | null;
+  message: string | null;
+}
+
+interface ImportPreviewResult {
+  fileHash: string;
+  revision: number;
+  accountId: string;
+  sourceCode: string;
+  periodMonth: string;
+  sourceCodeKnown: boolean;
+  totals: ImportTotals;
+  rows: ImportPreviewRow[];
+}
+
+const IMPORT_TOTAL_LABELS: [keyof ImportTotals, string][] = [['new', 'Novas'], ['ignored', 'Já importadas'], ['repeated', 'Repetidas'], ['conflicting', 'Conflitos'], ['invalid', 'Inválidas']];
+
+function isImportPreviewResult(value: unknown): value is ImportPreviewResult {
+  if (typeof value !== 'object' || value === null) return false;
+  const item = value as Partial<ImportPreviewResult>;
+  return typeof item.fileHash === 'string' && Number.isSafeInteger(item.revision) && typeof item.totals === 'object' && item.totals !== null && Array.isArray(item.rows);
+}
+
+function isImportConfirmation(value: unknown): value is { revision: number; transactionIds: string[] } {
+  if (!isRevisionResult(value)) return false;
+  return Array.isArray((value as { transactionIds?: unknown }).transactionIds);
+}
 
 const DOCUMENT_TYPE_LABELS: Record<string, string> = { 'application/pdf': 'PDF', 'image/png': 'PNG', 'image/jpeg': 'JPEG' };
 
@@ -381,6 +418,18 @@ export function App() {
   const documentPanelRef = useRef<HTMLElement | null>(null);
   const documentPanelTriggerRef = useRef<HTMLElement | null>(null);
 
+  const [importOpen, setImportOpen] = useState(false);
+  const [importAccountId, setImportAccountId] = useState('');
+  const [importSource, setImportSource] = useState('');
+  const [importMonth, setImportMonth] = useState('');
+  const [importFile, setImportFile] = useState<File | null>(null);
+  const [importFileError, setImportFileError] = useState<string | null>(null);
+  const [importResult, setImportResult] = useState<ImportPreviewResult | null>(null);
+  const [importMessage, setImportMessage] = useState<string | null>(null);
+  const importSequence = useRef(0);
+  const importPanelRef = useRef<HTMLElement | null>(null);
+  const importTriggerRef = useRef<HTMLElement | null>(null);
+
   // Delivery capture form
   const [idempotencyKey, setIdempotencyKey] = useState(() => generateIdempotencyKey());
   const [rectificationReason, setRectificationReason] = useState('');
@@ -416,6 +465,7 @@ export function App() {
       closeTransactionPanel();
       closePendingPanel();
       closeDocumentPanel();
+      closeImportPanel();
       setSession(null);
       setDataStatus('loading');
       setNotice({
@@ -510,6 +560,7 @@ export function App() {
       closeTransactionPanel();
       closePendingPanel();
       closeDocumentPanel();
+      closeImportPanel();
     }
   }, [session]);
 
@@ -533,6 +584,14 @@ export function App() {
       setNotice((current) => current ?? { tone: 'warn', title: 'Visão atualizada', detail: 'O caderno mudou enquanto o painel de documentos estava aberto. Reabra a ação para conferir os dados atuais.' });
     }
   }, [preview?.revision, documentPanel, documentPanelRevision]);
+
+  useEffect(() => {
+    if (importResult && preview && preview.revision !== importResult.revision) {
+      importSequence.current += 1;
+      setImportResult(null);
+      setImportMessage('O caderno mudou desde a pré-visualização. Pré-visualize novamente.');
+    }
+  }, [preview?.revision, importResult]);
 
   useEffect(() => {
     if (reimbPanel && reimbRevision !== null && preview && preview.revision !== reimbRevision) {
@@ -643,6 +702,7 @@ export function App() {
     closeTransactionPanel();
     closePendingPanel();
     closeDocumentPanel();
+    closeImportPanel();
     setBusyAction('logout');
     const outcome = await attemptLogout(session.csrfToken);
     setBusyAction(null);
@@ -680,6 +740,7 @@ export function App() {
     closeTransactionPanel();
     closePendingPanel();
     closeDocumentPanel();
+    closeImportPanel();
     setPeriodMonth(nextMonth);
     setPreview(null);
     setDocuments([]);
@@ -963,6 +1024,7 @@ export function App() {
     closeTransactionPanel();
     closePendingPanel();
     closeDocumentPanel();
+    closeImportPanel();
     reimbTriggerRef.current = trigger;
     setReimbPanel(state);
     setReimbRevision(preview?.revision ?? null);
@@ -1084,6 +1146,7 @@ export function App() {
     closeTransactionPanel();
     closePendingPanel();
     closeDocumentPanel();
+    closeImportPanel();
     txPanelTriggerRef.current = trigger;
     setTxPanel({ kind, transactionId: tx.transactionId });
     setTxDraft(draftFromTransaction(tx));
@@ -1240,6 +1303,7 @@ export function App() {
     closeTransactionPanel();
     closePendingPanel();
     closeDocumentPanel();
+    closeImportPanel();
     pendingPanelTriggerRef.current = trigger;
     setPendingPanel(state);
     setPendingText(initialPendingText(state));
@@ -1345,6 +1409,157 @@ export function App() {
     </>;
   }
 
+  function invalidateImportResult() {
+    importSequence.current += 1;
+    setImportResult(null);
+    setImportMessage(null);
+  }
+
+  function closeImportPanel(restoreFocus = false) {
+    importSequence.current += 1;
+    setImportOpen(false);
+    setImportFile(null);
+    setImportFileError(null);
+    setImportResult(null);
+    setImportMessage(null);
+    setImportSource('');
+    if (restoreFocus) {
+      window.requestAnimationFrame(() => window.requestAnimationFrame(() => {
+        const trigger = importTriggerRef.current;
+        if (trigger?.isConnected && !(trigger as HTMLButtonElement).disabled) trigger.focus({ preventScroll: true });
+      }));
+    }
+  }
+
+  function openImportPanel() {
+    if (!session || busyAction !== null || dataStatus !== 'ready') return;
+    const active = document.activeElement;
+    const trigger = active instanceof HTMLElement && active !== document.body ? active : importTriggerRef.current;
+    closeReimbursementPanel();
+    closeTransactionPanel();
+    closePendingPanel();
+    closeDocumentPanel();
+    closeImportPanel();
+    importTriggerRef.current = trigger;
+    setImportAccountId(accounts.find((account) => account.active)?.id ?? '');
+    setImportMonth(periodMonth);
+    setImportOpen(true);
+    const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    window.requestAnimationFrame(() => {
+      importPanelRef.current?.scrollIntoView({ behavior: reduceMotion ? 'auto' : 'smooth', block: 'start' });
+      importPanelRef.current?.focus({ preventScroll: true });
+    });
+  }
+
+  function chooseImportFile(file: File | null) {
+    invalidateImportResult();
+    setImportFile(file);
+    setImportFileError(file ? validateImportFile(file) : null);
+  }
+
+  function buildImportForm(): FormData | null {
+    const sourceCode = importSource.trim();
+    if (!importAccountId) { setImportMessage('Escolha a conta de destino.'); return null; }
+    if (!sourceCode) { setImportMessage('Informe o identificador da fonte.'); return null; }
+    if (!isValidPeriodMonth(importMonth)) { setImportMessage('Informe o mês no formato AAAA-MM.'); return null; }
+    const invalid = validateImportFile(importFile);
+    if (invalid || !importFile) { setImportFileError(invalid); return null; }
+    const form = new FormData();
+    form.append('file', importFile, importFile.name);
+    form.append('accountId', importAccountId);
+    form.append('sourceCode', sourceCode);
+    form.append('periodMonth', importMonth);
+    return form;
+  }
+
+  async function handlePreviewImport(event: FormEvent) {
+    event.preventDefault();
+    if (!importOpen || !session || busyAction !== null || dataStatus !== 'ready') return;
+    setImportMessage(null);
+    const form = buildImportForm();
+    if (!form) return;
+    const sequence = importSequence.current;
+    setImportResult(null);
+    setBusyAction('import-preview');
+    importPanelRef.current?.focus({ preventScroll: true });
+    try {
+      const res = await fetch('/api/v1/imports/preview', { method: 'POST', credentials: 'same-origin', headers: { 'X-CSRF-Token': session.csrfToken }, body: form });
+      const payload = await res.json().catch(() => null);
+      if (sequence !== importSequence.current) return;
+      if (res.status === 401) {
+        await loadWorkspaceData(periodMonth, session);
+        return;
+      }
+      if (!res.ok) {
+        setImportMessage(describeImportError(res.status, payload).message);
+        return;
+      }
+      if (!isImportPreviewResult(payload)) {
+        setImportMessage('Resposta inesperada do servidor. Tente pré-visualizar novamente.');
+        return;
+      }
+      setImportResult(payload);
+    } catch {
+      if (sequence === importSequence.current) setImportMessage('Conexão interrompida. Tente pré-visualizar novamente.');
+    } finally {
+      setBusyAction(null);
+    }
+  }
+
+  async function handleConfirmImport() {
+    if (!importOpen || !importResult || !importReady(importResult) || !session || busyAction !== null || dataStatus !== 'ready') return;
+    const form = buildImportForm();
+    if (!form) return;
+    form.append('expectedFileHash', importResult.fileHash);
+    form.append('expectedRevision', String(importResult.revision));
+    const sequence = importSequence.current;
+    const month = periodMonth;
+    setBusyAction('import-confirm');
+    importPanelRef.current?.focus({ preventScroll: true });
+    setNotice(null);
+    setImportMessage(null);
+    try {
+      const res = await fetch('/api/v1/imports/confirm', { method: 'POST', credentials: 'same-origin', headers: { 'X-CSRF-Token': session.csrfToken }, body: form });
+      const payload = await res.json().catch(() => null);
+      if (sequence !== importSequence.current || month !== periodMonth) {
+        if (res.status !== 401) await loadWorkspaceData(periodMonth, session);
+        return;
+      }
+      if (res.status === 401) {
+        await loadWorkspaceData(periodMonth, session);
+        return;
+      }
+      if (!res.ok) {
+        const err = describeImportError(res.status, payload);
+        setImportResult(null);
+        setImportMessage(err.message);
+        setNotice({ tone: 'err', title: 'Importação recusada', detail: err.message, code: err.code });
+        await loadWorkspaceData(periodMonth, session);
+        return;
+      }
+      if (!isImportConfirmation(payload)) {
+        closeImportPanel();
+        setNotice({ tone: 'err', title: 'Resposta inesperada do servidor', detail: 'A importação pode ter sido gravada. Confira os lançamentos na visão atualizada antes de repetir.' });
+        await loadWorkspaceData(periodMonth, session);
+        return;
+      }
+      if (res.status === 200) {
+        closeImportPanel();
+        setNotice({ tone: 'ok', title: 'Nada a importar', detail: 'Nenhuma linha nova; nada foi gravado.' });
+        return;
+      }
+      const updatedSession = { ...session, revision: payload.revision };
+      setSession(updatedSession);
+      closeImportPanel();
+      setNotice({ tone: 'ok', title: 'Importação concluída', detail: `${payload.transactionIds.length} lançamento(s) importado(s). Alteração gravada na revisão #${payload.revision}.` });
+      await loadWorkspaceData(periodMonth, updatedSession);
+    } catch {
+      setNotice({ tone: 'err', title: 'Conexão interrompida', detail: 'Atualize a visão e confira os lançamentos importados antes de repetir a operação.' });
+    } finally {
+      setBusyAction(null);
+    }
+  }
+
   function closeDocumentPanel(restoreFocus = false) {
     documentPanelSequence.current += 1;
     setDocumentPanel(null);
@@ -1372,6 +1587,7 @@ export function App() {
     closeTransactionPanel();
     closePendingPanel();
     closeDocumentPanel();
+    closeImportPanel();
     documentPanelTriggerRef.current = trigger;
     setDocumentPanel(state);
     setDocumentPanelRevision(preview?.revision ?? null);
@@ -1784,6 +2000,82 @@ export function App() {
                   </div>
                   <span className="mono revision-inline">Revisão #{session.revision}</span>
                 </div>
+
+                {!importOpen && <div className="form-actions">
+                  <button type="button" className="btn btn-outline" disabled={busyAction !== null || dataStatus !== 'ready' || !accounts.some((account) => account.active)} onClick={openImportPanel}>Importar CSV</button>
+                </div>}
+
+                {importOpen && (() => {
+                  const canSubmit = busyAction === null && dataStatus === 'ready';
+                  const ready = importReady(importResult);
+                  return <section className="reimb-panel" role="dialog" aria-modal="false" aria-labelledby="heading-import-panel" tabIndex={-1} ref={importPanelRef}
+                    onKeyDown={(event) => { if (event.key === 'Escape' && busyAction === null) closeImportPanel(true); }}>
+                    <h3 id="heading-import-panel">Importar lançamentos de CSV</h3>
+                    <form onSubmit={(event) => void handlePreviewImport(event)}>
+                      <div className="form-row">
+                        <label className="field field-grow">
+                          <span>Conta de destino</span>
+                          <select value={importAccountId} disabled={busyAction !== null} onChange={(e) => { invalidateImportResult(); setImportAccountId(e.target.value); }}>
+                            {accounts.filter((account) => account.active).map((account) => (
+                              <option key={account.id} value={account.id}>[{account.accountType}] {account.name}</option>
+                            ))}
+                          </select>
+                        </label>
+                        <label className="field">
+                          <span>Mês do arquivo (AAAA-MM)</span>
+                          <input type="text" className="mono" inputMode="numeric" maxLength={7} placeholder="2026-10" value={importMonth} disabled={busyAction !== null}
+                            aria-invalid={importMonth !== '' && !isValidPeriodMonth(importMonth)} onChange={(e) => { invalidateImportResult(); setImportMonth(e.target.value); }} />
+                        </label>
+                      </div>
+                      <label className="field">
+                        <span>Identificador da fonte</span>
+                        <input type="text" maxLength={80} placeholder="banco-x-extrato" value={importSource} disabled={busyAction !== null} onChange={(e) => { invalidateImportResult(); setImportSource(e.target.value); }} />
+                        <small className="row-sub">Use sempre o mesmo identificador para a mesma fonte; trocar cria novas identidades.</small>
+                      </label>
+                      <label className="field">
+                        <span>Arquivo CSV (até 1 MiB)</span>
+                        <input id="import-panel-file" type="file" accept=".csv,text/csv" disabled={busyAction !== null} aria-invalid={importFileError !== null}
+                          onChange={(e) => chooseImportFile(e.target.files?.[0] ?? null)} />
+                      </label>
+                      {importFileError && <p className="field-error" role="alert">{importFileError}</p>}
+                      <p className="context-note">A importação é tudo ou nada: com qualquer linha inválida ou em conflito, nada é gravado.</p>
+                      {importMessage && <p className="field-error" role="alert">{importMessage}</p>}
+                      <div className="form-actions">
+                        <button type="submit" className="btn btn-outline" disabled={!canSubmit || !importFile || importFileError !== null}>{busyAction === 'import-preview' ? 'Lendo arquivo…' : 'Pré-visualizar'}</button>
+                        <button type="button" className="btn btn-primary" disabled={!canSubmit || !ready} onClick={() => void handleConfirmImport()}>{busyAction === 'import-confirm' ? 'Importando…' : 'Confirmar importação'}</button>
+                        <button type="button" className="btn btn-outline" disabled={busyAction !== null} onClick={() => closeImportPanel(true)}>Cancelar</button>
+                      </div>
+                    </form>
+                    {importResult && <div role="status">
+                      {!importResult.sourceCodeKnown && <p className="context-note">Fonte nova nesta conta: as linhas serão tratadas como novas identidades.</p>}
+                      <p className="row-sub">
+                        {IMPORT_TOTAL_LABELS.map(([key, label]) => `${label}: ${importResult.totals[key]}`).join(' · ')}
+                      </p>
+                      {ready && importResult.totals.new === 0 && <p className="context-note">Nenhuma linha nova: confirmar não grava nada.</p>}
+                      {!ready && <p className="field-error">Corrija o arquivo: há linhas inválidas ou em conflito.</p>}
+                      <div className="table-scroll" tabIndex={0} role="region" aria-label="Prévia da importação, rolável horizontalmente">
+                        <table className="ledger-table">
+                          <thead>
+                            <tr><th>Linha</th><th>external_id</th><th>Situação</th><th>Motivo</th></tr>
+                          </thead>
+                          <tbody>
+                            {importResult.rows.map((row) => (
+                              <tr key={row.line}>
+                                <td className="mono">{row.line}</td>
+                                <td className="mono">{row.externalId ?? '—'}</td>
+                                <td><span className="status-chip">{importStatusLabel(row.status)}</span></td>
+                                <td>
+                                  {row.code ? importReasonLabel(row.code) : ''}
+                                  {row.message && <div className="row-sub">{row.message}</div>}
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>}
+                  </section>;
+                })()}
 
                 <form className="ledger-form" onSubmit={(e) => void handleCreateTransaction(e)}>
                   <div className="form-row">
@@ -2248,11 +2540,12 @@ export function App() {
                       <div className="form-row">
                         <label className="field field-grow">
                           <span>Conta da movimentação</span>
-                          <select value={txDraft.accountId} disabled={locked.has('accountId') || busyAction !== null} onChange={(e) => updateTxDraft({ accountId: e.target.value })}>
+                          <select value={txDraft.accountId} disabled={locked.has('accountId') || tx.sourceType === 'CSV' || busyAction !== null} onChange={(e) => updateTxDraft({ accountId: e.target.value })}>
                             {accounts.filter((account) => account.active || account.id === tx.accountId).map((account) => (
                               <option key={account.id} value={account.id}>[{account.accountType}] {account.name}</option>
                             ))}
                           </select>
+                          {tx.sourceType === 'CSV' && <small className="row-sub">Conta de lançamento importado não pode ser trocada.</small>}
                         </label>
                         <label className="field">
                           <span>Data civil</span>

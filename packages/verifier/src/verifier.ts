@@ -170,7 +170,9 @@ function isSafeIntInRange(value: unknown, min: number, max: number): value is nu
 }
 
 function isStringInRange(value: unknown, min: number, max: number): value is string {
-  return typeof value === 'string' && value.length >= min && value.length <= max;
+  if (typeof value !== 'string') return false;
+  const characters = [...value].length;
+  return characters >= min && characters <= max;
 }
 
 function isValidCivilDate(value: string): boolean {

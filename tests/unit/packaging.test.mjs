@@ -127,3 +127,23 @@ test('I11 packaging: reimbursement link and context reach HTML/manifest, stay ou
     assert.equal(verified.ok,true,verified.message);assert.equal(verified.counts.contextTransactions,2);
   }finally{await rm(dir,{recursive:true,force:true});}
 });
+
+test('I16 verifier: text limits count Unicode characters like the API, database and JSON Schema',async()=>{
+  const {buildPackage}=await import('../../apps/api/dist/packaging/build.js');
+  const {verifyDeliveryPackage}=await import('../../packages/verifier/dist/verifier.js');
+  const {mkdir,writeFile}=await import('node:fs/promises');
+  const bytes=Buffer.from('%PDF-1.7\nSynthetic I16\n%%EOF\n'),doc=document(bytes);
+  const p=payload([doc],{sourceType:'CSV',sourceCode:'\u{1F3E6}'.repeat(80),externalId:'\u{1F600}'.repeat(200),descriptionOriginal:'\u{1F4B8}'.repeat(500),
+    categoryOriginal:'\u{1F4C1}'.repeat(100),reimbursementStatus:'PENDENTE_REEMBOLSO'});
+  p.summary.categoryTotals=[{category:p.transactions[0].categoryOriginal,inflowCents:0,outflowCents:1250,netCents:-1250}];
+  p.summary.cashFlowByAccount[0].accountName=p.transactions[0].accountName;
+  const dir=await mkdtemp(join(tmpdir(),'mimir-i16-'));
+  try{
+    const built=await buildPackage(p,async()=>bytes,join(dir,'work'),new AbortController().signal,new Date('2026-11-06T00:00:00Z'));
+    const extracted=join(dir,'pkg');
+    for(const [name,data] of readZip(await readFile(built.zipPath))){await mkdir(join(extracted,name,'..'),{recursive:true});await writeFile(join(extracted,name),data);}
+    await writeFile(join(dir,'ref.json'),built.manifest);
+    const verified=await verifyDeliveryPackage(extracted,join(dir,'ref.json'));
+    assert.equal(verified.ok,true,verified.message);
+  }finally{await rm(dir,{recursive:true,force:true});}
+});

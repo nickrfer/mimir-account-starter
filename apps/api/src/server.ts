@@ -18,8 +18,10 @@ import type { ReimbursementsPort } from './ports/reimbursements.js';
 import { handleReimbursements } from './reimbursements/http.js';
 import type { PendingItemsPort } from './ports/pending-items.js';
 import { handlePendingItems } from './pending/http.js';
+import type { ImportsPort } from './ports/imports.js';
+import { handleImports } from './imports/http.js';
 
-export function createApp(persistence: PersistencePort, webRoot: string, authentication?: SessionHttpOptions, accounts?: AccountsPort, transactions?: TransactionsPort, documents?: DocumentsPort, preview?: PreviewPort, deliveries?: DeliveriesPort, reimbursements?: ReimbursementsPort, pendingItems?: PendingItemsPort) {
+export function createApp(persistence: PersistencePort, webRoot: string, authentication?: SessionHttpOptions, accounts?: AccountsPort, transactions?: TransactionsPort, documents?: DocumentsPort, preview?: PreviewPort, deliveries?: DeliveriesPort, reimbursements?: ReimbursementsPort, pendingItems?: PendingItemsPort, imports?: ImportsPort) {
   return createServer({ requestTimeout: 10000, headersTimeout: 5000, maxHeaderSize: 8192 }, (req, res) => {
     void (async () => {
       res.setHeader('X-Content-Type-Options', 'nosniff');
@@ -39,6 +41,8 @@ export function createApp(persistence: PersistencePort, webRoot: string, authent
         const target = documentTarget(path);
         if (target) { await handleDocuments(req, res, authentication, documents, target); return; }
       }
+      const importRoute = /^\/api\/v1\/imports\/(preview|confirm)$/.exec(path);
+      if (importRoute && authentication && imports) { await handleImports(req, res, authentication, imports, importRoute[1] as 'preview' | 'confirm'); return; }
       const monthPreview = /^\/api\/v1\/periods\/([^/]+)\/preview$/.exec(path);
       if (monthPreview && authentication && preview) { await handlePreview(req, res, authentication, preview, monthPreview[1]!); return; }
       if (path === '/api/v1/deliveries' && authentication && deliveries) { await handleDeliveries(req,res,authentication,deliveries,{ kind: 'capture' }); return; }
