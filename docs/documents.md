@@ -26,7 +26,13 @@ Conteúdo/metadados ficam em PostgreSQL bytea imutável: runtime só SELECT/INSE
 
 Anexar resolve DOCUMENTO_AUSENTE existente no mesmo commit, preservando eventual justificativa como metadado. Não cria pendência documental em transferência/A_ESCLARECER. O vínculo é alteração material: outras pendências automáticas JUSTIFICADA voltam a PENDENTE e limpam justificativa. Classificação/reembolso ainda pendentes não são resolvidos por um arquivo. Dúvida manual mantém estado e texto.
 
-Sem endpoints de justificativa/resolução/reabertura manual, download, vínculo de documento existente, substituição ou desvínculo; contratos complementares detalhados precedem esses comandos. Não se declara ciclo completo de pendências, jornada documental/interface ou entrega ao contador concluídos.
+## Comandos complementares (I15)
+
+Contrato `packages/contracts/openapi-documentos.yaml` 0.1.0. `GET /documents?periodMonth=` lista documentos vinculados a lançamentos ativos do mês (até 1.000; acima disso 413 `DOCUMENT_LIST_LIMIT_EXCEEDED`). `GET /documents/{id}/content` devolve os bytes como `application/octet-stream`, `attachment` com nome `documento-<id>.<ext>` gerado pelo servidor, `nosniff`, CSP `sandbox` e `X-Content-SHA256`; vale para qualquer documento do espaço, com ou sem vínculo.
+
+Vincular documento existente (`POST /transactions/{id}/document-links`), desvincular (`DELETE .../document-links/{documentId}`) e substituir (`POST .../document-replacements`, multipart com `replacedDocumentId`) seguem o protocolo de mutação: forma → existência no espaço (404) → revisão (409) → lançamento excluído (409) → estado do vínculo (409 `DOCUMENT_ALREADY_LINKED` / `DOCUMENT_NOT_LINKED`). Substituir cria documento novo com `supersedes_document_id`, troca só aquele vínculo e preserva o anterior e seus outros usos. Desvincular apaga só a linha de vínculo; bytes e metadados ficam. Nenhuma migração nova: o runtime já tinha `INSERT/DELETE` em `transaction_documents` e só `SELECT/INSERT` em `documents`.
+
+Reconciliação no mesmo commit pela regra pura `reconcileAutomaticPending`, com vínculo documental como mudança material: vincular ou substituir resolve `DOCUMENTO_AUSENTE`; desvincular o último documento de receita ou despesa a reabre (ou cria) sem justificativa; outras pendências automáticas justificadas voltam a pendentes; dúvida manual não muda. O upload do I05 mantém o comportamento descrito acima. Entregas capturadas não mudam: pacotes leem `snapshot_documents` e o payload imutável.
 
 ## Executar e testar
 

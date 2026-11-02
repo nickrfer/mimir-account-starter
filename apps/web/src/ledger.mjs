@@ -241,3 +241,50 @@ export function buildTransactionPatch(original, draft) {
 export function lockedFieldsForLinked(isLinked) {
   return isLinked ? [...LINKED_LOCKED_FIELDS] : [];
 }
+
+export function documentsByTransaction(documents) {
+  const grouped = new Map();
+  for (const document of documents) {
+    for (const transactionId of document.transactionIds) {
+      const list = grouped.get(transactionId);
+      if (list) list.push(document);
+      else grouped.set(transactionId, [document]);
+    }
+  }
+  return grouped;
+}
+
+export function linkableDocuments(documents, transactionId) {
+  return documents.filter((document) => !document.transactionIds.includes(transactionId));
+}
+
+export function formatFileSize(bytes) {
+  if (bytes < 1024) return bytes === 1 ? '1 byte' : `${bytes} bytes`;
+  const unit = bytes < 1024 * 1024 ? 'KB' : 'MB';
+  const value = bytes / (unit === 'KB' ? 1024 : 1024 * 1024);
+  return `${value.toFixed(1).replace('.', ',')} ${unit}`;
+}
+
+const DOCUMENT_ERROR_MESSAGES = {
+  DOCUMENT_ALREADY_LINKED: 'Este documento já está vinculado a este lançamento.',
+  DOCUMENT_NOT_LINKED: 'Este documento não está mais vinculado ao lançamento. Atualize a visão.',
+  TRANSACTION_INACTIVE: 'Este lançamento foi excluído e não aceita mais alterações de documentos.',
+  REVISION_CONFLICT: 'O caderno mudou desde que você abriu este painel. Confira a visão atualizada e repita a ação.',
+  NOT_FOUND: 'Lançamento, documento ou vínculo não encontrado. Atualize a visão.',
+  UPLOAD_LIMIT: 'Há envios demais em andamento. Aguarde um instante e tente novamente.',
+};
+
+const DOCUMENT_STATUS_MESSAGES = {
+  404: DOCUMENT_ERROR_MESSAGES.NOT_FOUND,
+  413: 'O arquivo excede o limite de 5 MiB.',
+  415: 'Tipo de arquivo não permitido. Envie PDF, PNG ou JPEG.',
+  422: 'O arquivo ou os dados enviados são inválidos. Confira o arquivo e tente novamente.',
+  429: DOCUMENT_ERROR_MESSAGES.UPLOAD_LIMIT,
+};
+
+export function describeDocumentError(status, payload) {
+  const described = describeApiError(status, payload);
+  if (Object.hasOwn(DOCUMENT_ERROR_MESSAGES, described.code)) return { ...described, message: DOCUMENT_ERROR_MESSAGES[described.code] };
+  if (Object.hasOwn(DOCUMENT_STATUS_MESSAGES, status)) return { ...described, message: DOCUMENT_STATUS_MESSAGES[status] };
+  return described;
+}

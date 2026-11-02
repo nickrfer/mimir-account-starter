@@ -5,7 +5,8 @@ import { authorizeActor,lockWorkspace } from './postgres-workspace.js';
 import { nextRevision } from '../domain/values.js';
 import { ApiError } from '../http/error.js';
 import { mergedRulesValid,validateAccount } from '../transactions/input.js';
-import { initialPendingTypes,pendingDescriptions,reconcileAutomaticPending,type ExistingPending } from '../transactions/pending.js';
+import { initialPendingTypes,pendingDescriptions } from '../transactions/pending.js';
+import { reconcileTransactionPending } from './postgres-pending-reconcile.js';
 import type { WorkspaceActor } from '../ports/workspace.js';
 import type { CreateTransaction,ManualTransaction,PatchTransaction,TransactionMutation,TransactionPage,TransactionRecord,TransactionsPort } from '../ports/transactions.js';
 
@@ -123,17 +124,10 @@ export class PostgresTransactions implements TransactionsPort {
         classification=$10,is_pf_business_expense=$11,explanation=$12,updated_at=clock_timestamp() WHERE workspace_id=$1 AND id=$2`,
         [actor.workspaceId,id,after.accountId,after.occurredOn,periodMonth,after.direction,after.amountCents,after.description,after.category,
         after.classification,after.isPfBusinessExpense,after.explanation]);
-      const existing=(await client.query<ExistingPending>(`SELECT type,status,justification FROM mimir.pending_items WHERE workspace_id=$1 AND transaction_id=$2`,
-        [actor.workspaceId,id])).rows;
       const hasActiveReimbursement=Boolean((await client.query(`SELECT 1 FROM mimir.reimbursement_links WHERE workspace_id=$1 AND pf_expense_id=$2 AND status='ATIVO'`,
         [actor.workspaceId,id])).rowCount);
-      for(const action of reconcileAutomaticPending({classification:after.classification,isPfBusinessExpense:after.isPfBusinessExpense,
-        hasDocuments:row.document_ids.length>0,hasActiveReimbursement},existing,material)){
-        if(action.action==='INSERT')await client.query(`INSERT INTO mimir.pending_items(id,workspace_id,transaction_id,type,description) VALUES($1,$2,$3,$4,$5)`,
-          [randomUUID(),actor.workspaceId,id,action.type,pendingDescriptions[action.type]]);
-        else await client.query(`UPDATE mimir.pending_items SET status=$4,justification=CASE WHEN $4='PENDENTE' THEN '' ELSE justification END,updated_at=clock_timestamp()
-          WHERE workspace_id=$1 AND transaction_id=$2 AND type=$3`,[actor.workspaceId,id,action.type,action.action==='RESOLVE'?'RESOLVIDA':'PENDENTE']);
-      }
+      await reconcileTransactionPending(client,actor.workspaceId,id,{classification:after.classification,isPfBusinessExpense:after.isPfBusinessExpense,
+        hasDocuments:row.document_ids.length>0,hasActiveReimbursement},material);
       await client.query('UPDATE mimir.workspaces SET revision=$1 WHERE id=$2',[revision,actor.workspaceId]);
       return{transaction:record((await this.load(client,actor.workspaceId,id))!),revision};
     });

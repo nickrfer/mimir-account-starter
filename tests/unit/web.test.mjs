@@ -245,3 +245,40 @@ test('I13 web: deteccao de duvida existente por lancamento e mensagens de erro d
   }
   assert.equal(describeApiError(409, { code: 'OUTRO', message: 'texto do servidor' }).message, 'texto do servidor');
 });
+
+test('I15 web: agrupamento, vinculaveis, tamanho e erros de documentos', async () => {
+  const { documentsByTransaction, linkableDocuments, formatFileSize, describeDocumentError, describeApiError } = await import('../../apps/web/src/ledger.mjs');
+  const documents = [
+    { documentId: 'd1', transactionIds: ['t1', 't2'] },
+    { documentId: 'd2', transactionIds: ['t2'] },
+    { documentId: 'd3', transactionIds: ['t3'] },
+  ];
+  const grouped = documentsByTransaction(documents);
+  assert.deepEqual(grouped.get('t1').map((d) => d.documentId), ['d1']);
+  assert.deepEqual(grouped.get('t2').map((d) => d.documentId), ['d1', 'd2']);
+  assert.equal(grouped.get('t9'), undefined);
+  assert.equal(documentsByTransaction([]).size, 0);
+  assert.deepEqual(linkableDocuments(documents, 't2').map((d) => d.documentId), ['d3']);
+  assert.deepEqual(linkableDocuments(documents, 't9').map((d) => d.documentId), ['d1', 'd2', 'd3']);
+  assert.equal(formatFileSize(1), '1 byte');
+  assert.equal(formatFileSize(512), '512 bytes');
+  assert.equal(formatFileSize(2048), '2,0 KB');
+  assert.equal(formatFileSize(1536 * 1024), '1,5 MB');
+  assert.equal(formatFileSize(5 * 1024 * 1024), '5,0 MB');
+  const codes = ['DOCUMENT_ALREADY_LINKED', 'DOCUMENT_NOT_LINKED', 'TRANSACTION_INACTIVE', 'REVISION_CONFLICT', 'NOT_FOUND', 'UPLOAD_LIMIT'];
+  const seen = new Set();
+  for (const code of codes) {
+    const described = describeDocumentError(409, { code, message: 'texto do servidor', requestId: 'r1' });
+    assert.equal(described.code, code);
+    assert.equal(described.requestId, 'r1');
+    assert.notEqual(described.message, 'texto do servidor');
+    seen.add(described.message);
+    assert.equal(describeApiError(409, { code, message: 'texto do servidor' }).message, 'texto do servidor');
+  }
+  assert.equal(seen.size, codes.length);
+  for (const status of [413, 415, 422, 429, 404]) {
+    assert.notEqual(describeDocumentError(status, { code: 'X', message: 'texto do servidor' }).message, 'texto do servidor', String(status));
+  }
+  assert.equal(describeDocumentError(500, { code: 'X', message: 'texto do servidor' }).message, 'texto do servidor');
+  assert.equal(describeDocumentError(500, null).code, 'HTTP_500');
+});

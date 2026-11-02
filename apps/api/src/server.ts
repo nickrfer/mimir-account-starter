@@ -8,7 +8,7 @@ import { handleAccounts } from './accounts/http.js';
 import type { AccountsPort } from './ports/accounts.js';
 import { handleTransactions } from './transactions/http.js';
 import type { TransactionsPort } from './ports/transactions.js';
-import { handleDocuments } from './documents/http.js';
+import { documentTarget, handleDocuments } from './documents/http.js';
 import type { DocumentsPort } from './ports/documents.js';
 import type { PreviewPort } from './ports/preview.js';
 import { handlePreview } from './preview/http.js';
@@ -35,8 +35,10 @@ export function createApp(persistence: PersistencePort, webRoot: string, authent
       if (path === '/api/v1/pending-items' && authentication && pendingItems) { await handlePendingItems(req, res, authentication, pendingItems, { kind: 'collection' }); return; }
       const pendingItem = /^\/api\/v1\/pending-items\/([^/]+)$/.exec(path);
       if (pendingItem && authentication && pendingItems) { await handlePendingItems(req, res, authentication, pendingItems, { kind: 'item', id: pendingItem[1]! }); return; }
-      const upload = /^\/api\/v1\/transactions\/([^/]+)\/documents$/.exec(path);
-      if (upload && authentication && documents) { await handleDocuments(req, res, authentication, documents, upload[1]!); return; }
+      if (authentication && documents) {
+        const target = documentTarget(path);
+        if (target) { await handleDocuments(req, res, authentication, documents, target); return; }
+      }
       const monthPreview = /^\/api\/v1\/periods\/([^/]+)\/preview$/.exec(path);
       if (monthPreview && authentication && preview) { await handlePreview(req, res, authentication, preview, monthPreview[1]!); return; }
       if (path === '/api/v1/deliveries' && authentication && deliveries) { await handleDeliveries(req,res,authentication,deliveries,{ kind: 'capture' }); return; }

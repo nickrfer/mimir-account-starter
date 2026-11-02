@@ -9,11 +9,15 @@ import {
   canMarkPfBusinessExpense,
   defaultDateForMonth,
   describeApiError,
+  describeDocumentError,
   describePendingError,
+  documentsByTransaction,
   formatBrlCents,
+  formatFileSize,
   generateIdempotencyKey,
   hasQuestion,
   isValidPeriodMonth,
+  linkableDocuments,
   lockedFieldsForLinked,
   nextVersionRequiresReason,
   nextMonthAction,
@@ -111,6 +115,23 @@ interface TransactionDraft {
 type PendingPanelState =
   | { kind: 'create'; transactionId: string }
   | { kind: 'manage' | 'justify' | 'edit' | 'resolve' | 'reopen'; pendingId: string };
+
+interface PeriodDocument {
+  documentId: string;
+  originalName: string;
+  mimeType: string;
+  sizeBytes: number;
+  sha256: string;
+  createdAt: string;
+  supersedesDocumentId: string | null;
+  transactionIds: string[];
+}
+
+type DocumentPanelState =
+  | { kind: 'replace' | 'unlink'; transactionId: string; documentId: string }
+  | { kind: 'link'; transactionId: string };
+
+const DOCUMENT_TYPE_LABELS: Record<string, string> = { 'application/pdf': 'PDF', 'image/png': 'PNG', 'image/jpeg': 'JPEG' };
 
 const JUSTIFICATION_DISCLAIMER = 'A justificativa é uma declaração sua. Ela não resolve a pendência nem valida o lançamento fiscalmente.';
 const AUTOMATIC_PENDING_GUIDANCE = 'Resolva eliminando a causa (anexar comprovante, vincular reembolso ou corrigir o lançamento).';
@@ -349,6 +370,17 @@ export function App() {
   const pendingPanelRef = useRef<HTMLElement | null>(null);
   const pendingPanelTriggerRef = useRef<HTMLElement | null>(null);
 
+  const [documents, setDocuments] = useState<PeriodDocument[]>([]);
+  const [documentPanel, setDocumentPanel] = useState<DocumentPanelState | null>(null);
+  const [documentPanelRevision, setDocumentPanelRevision] = useState<number | null>(null);
+  const [documentPanelMessage, setDocumentPanelMessage] = useState<string | null>(null);
+  const [documentPanelFile, setDocumentPanelFile] = useState<File | null>(null);
+  const [documentPanelFileError, setDocumentPanelFileError] = useState<string | null>(null);
+  const [documentLinkId, setDocumentLinkId] = useState('');
+  const documentPanelSequence = useRef(0);
+  const documentPanelRef = useRef<HTMLElement | null>(null);
+  const documentPanelTriggerRef = useRef<HTMLElement | null>(null);
+
   // Delivery capture form
   const [idempotencyKey, setIdempotencyKey] = useState(() => generateIdempotencyKey());
   const [rectificationReason, setRectificationReason] = useState('');
@@ -362,11 +394,13 @@ export function App() {
     let accPage: { items: AccountItem[]; status: number };
     let prevRes: Response;
     let delPage: { items: DeliveryOperation[]; status: number };
+    let docsRes: Response;
     try {
-      [accPage, prevRes, delPage] = await Promise.all([
+      [accPage, prevRes, delPage, docsRes] = await Promise.all([
         fetchAllPages<AccountItem>('/api/v1/accounts', 200),
         fetch(`/api/v1/periods/${encodeURIComponent(month)}/preview`, { credentials: 'same-origin' }),
         fetchAllPages<DeliveryOperation>(`/api/v1/periods/${encodeURIComponent(month)}/deliveries`, 200),
+        fetch(`/api/v1/documents?periodMonth=${encodeURIComponent(month)}`, { credentials: 'same-origin' }),
       ]);
     } catch {
       if (sequence === loadSequence.current) {
@@ -377,10 +411,11 @@ export function App() {
     }
     if (sequence !== loadSequence.current) return;
 
-    if (accPage.status === 401 || prevRes.status === 401 || delPage.status === 401) {
+    if (accPage.status === 401 || prevRes.status === 401 || delPage.status === 401 || docsRes.status === 401) {
       closeReimbursementPanel();
       closeTransactionPanel();
       closePendingPanel();
+      closeDocumentPanel();
       setSession(null);
       setDataStatus('loading');
       setNotice({
@@ -423,12 +458,22 @@ export function App() {
       }
     }
 
+    let documentsLoaded = false;
+    if (docsRes.ok) {
+      const docsJson = await docsRes.json().catch(() => null) as { documents?: unknown } | null;
+      if (sequence !== loadSequence.current) return;
+      if (docsJson && Array.isArray(docsJson.documents)) {
+        setDocuments(docsJson.documents as PeriodDocument[]);
+        documentsLoaded = true;
+      }
+    }
+
     if (delPage.status === 200) {
       setDeliveries(delPage.items);
       const latest = delPage.items[delPage.items.length - 1] ?? null;
       setActiveOperation(latest);
     }
-    if (accPage.status !== 200 || !prevRes.ok || delPage.status !== 200) {
+    if (accPage.status !== 200 || !prevRes.ok || delPage.status !== 200 || !documentsLoaded) {
       setDataStatus('error');
       setNotice({ tone: 'err', title: 'Visão incompleta', detail: 'Uma parte do caderno não carregou. Atualize a visão antes de registrar novas alterações.' });
     } else {
@@ -464,6 +509,7 @@ export function App() {
       closeReimbursementPanel();
       closeTransactionPanel();
       closePendingPanel();
+      closeDocumentPanel();
     }
   }, [session]);
 
@@ -480,6 +526,13 @@ export function App() {
       setNotice((current) => current ?? { tone: 'warn', title: 'Visão atualizada', detail: 'O caderno mudou enquanto o painel de pendência estava aberto. Reabra a pendência para conferir os dados atuais.' });
     }
   }, [preview?.revision, pendingPanel, pendingPanelRevision]);
+
+  useEffect(() => {
+    if (documentPanel && documentPanelRevision !== null && preview && preview.revision !== documentPanelRevision) {
+      closeDocumentPanel(true);
+      setNotice((current) => current ?? { tone: 'warn', title: 'Visão atualizada', detail: 'O caderno mudou enquanto o painel de documentos estava aberto. Reabra a ação para conferir os dados atuais.' });
+    }
+  }, [preview?.revision, documentPanel, documentPanelRevision]);
 
   useEffect(() => {
     if (reimbPanel && reimbRevision !== null && preview && preview.revision !== reimbRevision) {
@@ -589,6 +642,7 @@ export function App() {
     closeReimbursementPanel();
     closeTransactionPanel();
     closePendingPanel();
+    closeDocumentPanel();
     setBusyAction('logout');
     const outcome = await attemptLogout(session.csrfToken);
     setBusyAction(null);
@@ -601,6 +655,7 @@ export function App() {
     setDataStatus('loading');
     setAccounts([]);
     setPreview(null);
+    setDocuments([]);
     setDeliveries([]);
     setShowOlderDeliveries(false);
     setActiveOperation(null);
@@ -624,8 +679,10 @@ export function App() {
     closeReimbursementPanel();
     closeTransactionPanel();
     closePendingPanel();
+    closeDocumentPanel();
     setPeriodMonth(nextMonth);
     setPreview(null);
+    setDocuments([]);
     setDeliveries([]);
     setDocTransactionId('');
     setSelectedFile(null);
@@ -905,6 +962,7 @@ export function App() {
     closeReimbursementPanel();
     closeTransactionPanel();
     closePendingPanel();
+    closeDocumentPanel();
     reimbTriggerRef.current = trigger;
     setReimbPanel(state);
     setReimbRevision(preview?.revision ?? null);
@@ -1025,6 +1083,7 @@ export function App() {
     closeReimbursementPanel();
     closeTransactionPanel();
     closePendingPanel();
+    closeDocumentPanel();
     txPanelTriggerRef.current = trigger;
     setTxPanel({ kind, transactionId: tx.transactionId });
     setTxDraft(draftFromTransaction(tx));
@@ -1180,6 +1239,7 @@ export function App() {
     closeReimbursementPanel();
     closeTransactionPanel();
     closePendingPanel();
+    closeDocumentPanel();
     pendingPanelTriggerRef.current = trigger;
     setPendingPanel(state);
     setPendingText(initialPendingText(state));
@@ -1285,6 +1345,130 @@ export function App() {
     </>;
   }
 
+  function closeDocumentPanel(restoreFocus = false) {
+    documentPanelSequence.current += 1;
+    setDocumentPanel(null);
+    setDocumentPanelRevision(null);
+    setDocumentPanelMessage(null);
+    setDocumentPanelFile(null);
+    setDocumentPanelFileError(null);
+    setDocumentLinkId('');
+    if (restoreFocus) restoreDocumentFocus();
+  }
+
+  function restoreDocumentFocus() {
+    window.requestAnimationFrame(() => window.requestAnimationFrame(() => {
+      const trigger = documentPanelTriggerRef.current;
+      if (trigger?.isConnected && !(trigger as HTMLButtonElement).disabled) trigger.focus({ preventScroll: true });
+      else pendingSectionRef.current?.focus({ preventScroll: true });
+    }));
+  }
+
+  function openDocumentPanel(state: DocumentPanelState) {
+    if (!session || busyAction !== null || dataStatus !== 'ready') return;
+    const active = document.activeElement;
+    const trigger = active instanceof HTMLElement && active !== document.body ? active : documentPanelTriggerRef.current;
+    closeReimbursementPanel();
+    closeTransactionPanel();
+    closePendingPanel();
+    closeDocumentPanel();
+    documentPanelTriggerRef.current = trigger;
+    setDocumentPanel(state);
+    setDocumentPanelRevision(preview?.revision ?? null);
+    setActiveSection('review');
+    const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    window.requestAnimationFrame(() => {
+      documentPanelRef.current?.scrollIntoView({ behavior: reduceMotion ? 'auto' : 'smooth', block: 'start' });
+      documentPanelRef.current?.focus({ preventScroll: true });
+    });
+  }
+
+  function chooseReplacementFile(file: File | null) {
+    setDocumentPanelMessage(null);
+    setDocumentPanelFile(file);
+    setDocumentPanelFileError(file ? validateDocumentFile(file) : null);
+  }
+
+  async function handleSubmitDocumentPanel(event: FormEvent) {
+    event.preventDefault();
+    if (!documentPanel || !session || !preview || documentPanelRevision === null || preview.revision !== documentPanelRevision || busyAction !== null || dataStatus !== 'ready') return;
+    const panel = documentPanel;
+    const base = `/api/v1/transactions/${encodeURIComponent(panel.transactionId)}`;
+    const headers: Record<string, string> = { 'X-CSRF-Token': session.csrfToken };
+    let method: 'POST' | 'DELETE';
+    let url: string;
+    let body: string | FormData;
+    let okTitle: string;
+    let failTitle: string;
+    let okDetail = '';
+    if (panel.kind === 'replace') {
+      if (!documentPanelFile) { setDocumentPanelMessage('Selecione um arquivo PDF, PNG ou JPEG de até 5 MiB.'); return; }
+      const invalid = validateDocumentFile(documentPanelFile);
+      if (invalid) { setDocumentPanelFileError(invalid); return; }
+      const form = new FormData();
+      form.append('file', documentPanelFile, documentPanelFile.name);
+      form.append('replacedDocumentId', panel.documentId);
+      form.append('expectedRevision', String(documentPanelRevision));
+      method = 'POST'; url = `${base}/document-replacements`; body = form;
+      okTitle = 'Documento substituído'; failTitle = 'Substituição recusada';
+    } else if (panel.kind === 'link') {
+      if (!documentLinkId) { setDocumentPanelMessage('Escolha o documento a vincular.'); return; }
+      headers['Content-Type'] = 'application/json';
+      method = 'POST'; url = `${base}/document-links`; body = JSON.stringify({ documentId: documentLinkId, expectedRevision: documentPanelRevision });
+      okTitle = 'Documento vinculado'; failTitle = 'Vínculo recusado';
+    } else {
+      headers['Content-Type'] = 'application/json';
+      method = 'DELETE'; url = `${base}/document-links/${encodeURIComponent(panel.documentId)}`; body = JSON.stringify({ expectedRevision: documentPanelRevision });
+      okTitle = 'Documento desvinculado'; failTitle = 'Desvínculo recusado';
+      const tx = preview.transactions.find((item) => item.transactionId === panel.transactionId);
+      const remaining = documentsByTransaction(documents).get(panel.transactionId)?.filter((doc) => doc.documentId !== panel.documentId).length ?? 0;
+      if (tx && remaining === 0 && (tx.classification === 'RECEITA' || tx.classification === 'DESPESA')) {
+        okDetail = ' O lançamento ficou sem comprovante e a pendência de comprovante ausente voltou.';
+      }
+    }
+    const sequence = documentPanelSequence.current;
+    const month = periodMonth;
+    setBusyAction('document-change');
+    documentPanelRef.current?.focus({ preventScroll: true });
+    setNotice(null);
+    setDocumentPanelMessage(null);
+    try {
+      const res = await fetch(url, { method, credentials: 'same-origin', headers, body });
+      const payload = await res.json().catch(() => null);
+      if (sequence !== documentPanelSequence.current || month !== periodMonth) {
+        if (res.status !== 401) await loadWorkspaceData(periodMonth, session);
+        return;
+      }
+      if (!res.ok) {
+        if (res.status === 401) {
+          await loadWorkspaceData(periodMonth, session);
+          return;
+        }
+        const err = describeDocumentError(res.status, payload);
+        setDocumentPanelMessage(err.message);
+        setNotice({ tone: 'err', title: failTitle, detail: err.message, code: err.code });
+        await loadWorkspaceData(periodMonth, session);
+        return;
+      }
+      if (!isRevisionResult(payload)) {
+        closeDocumentPanel();
+        setNotice({ tone: 'err', title: 'Resposta inesperada do servidor', detail: 'A operação pode ter sido gravada. Confira os documentos na visão atualizada antes de repetir.' });
+        await loadWorkspaceData(periodMonth, session);
+        return;
+      }
+      const updatedSession = { ...session, revision: payload.revision };
+      setSession(updatedSession);
+      closeDocumentPanel();
+      setNotice({ tone: 'ok', title: okTitle, detail: `Alteração gravada na revisão #${payload.revision}.${okDetail}` });
+      await loadWorkspaceData(periodMonth, updatedSession);
+      restoreDocumentFocus();
+    } catch {
+      setNotice({ tone: 'err', title: 'Conexão interrompida', detail: 'Atualize a visão e confira os documentos do lançamento antes de repetir a operação.' });
+    } finally {
+      setBusyAction(null);
+    }
+  }
+
   function describeTransaction(transactionId: string | null) {
     if (!transactionId || !preview) return 'Não informada';
     const tx = [...preview.transactions, ...preview.contextTransactions].find((item) => item.transactionId === transactionId);
@@ -1294,6 +1478,7 @@ export function App() {
   const requiresRectification = nextVersionRequiresReason(deliveries);
   const nextAction = nextMonthAction({ loaded: dataStatus === 'ready', accounts, preview, deliveries });
   const latestDelivery = deliveries.reduce<DeliveryOperation | null>((latest, item) => !latest || item.versionNumber > latest.versionNumber ? item : latest, null);
+  const documentsByTx = documentsByTransaction(documents);
   const openPendings = preview?.pendingItems.filter((item) => item.status === 'PENDENTE') ?? [];
   const otherPendings = preview?.pendingItems.filter((item) => item.status !== 'PENDENTE') ?? [];
   const nextActionContent = (() => {
@@ -2196,6 +2381,58 @@ export function App() {
                   </form>);
                 })()}
 
+                {documentPanel && (() => {
+                  const canSubmit = busyAction === null && dataStatus === 'ready';
+                  const tx = preview?.transactions.find((entry) => entry.transactionId === documentPanel.transactionId);
+                  const doc = documentPanel.kind === 'link' ? undefined : documents.find((entry) => entry.documentId === documentPanel.documentId);
+                  const linkable = documentPanel.kind === 'link' ? linkableDocuments(documents, documentPanel.transactionId) : [];
+                  const title = documentPanel.kind === 'replace' ? 'Substituir documento' : documentPanel.kind === 'unlink' ? 'Desvincular documento' : 'Vincular documento do mês';
+                  const shell = (children: ReactNode) => <section className="reimb-panel" role="dialog" aria-modal="false" aria-labelledby="heading-document-panel" tabIndex={-1} ref={documentPanelRef}
+                    onKeyDown={(event) => { if (event.key === 'Escape' && busyAction === null) closeDocumentPanel(true); }}>{children}</section>;
+                  const closeButton = <button type="button" className="btn btn-outline" disabled={busyAction !== null} onClick={() => closeDocumentPanel(true)}>Cancelar</button>;
+                  if (!tx || (documentPanel.kind !== 'link' && !doc)) {
+                    return shell(<>
+                      <h3 id="heading-document-panel">Documento indisponível</h3>
+                      <p className="empty-hint">O lançamento ou o documento não está mais na visão do mês. Atualize a visão.</p>
+                      <div className="form-actions"><button type="button" className="btn btn-outline" disabled={busyAction !== null} onClick={() => closeDocumentPanel(true)}>Fechar</button></div>
+                    </>);
+                  }
+                  return shell(<form onSubmit={handleSubmitDocumentPanel}>
+                    <h3 id="heading-document-panel">{title}</h3>
+                    <p className="reimb-expense">
+                      <strong>{tx.descriptionOriginal}</strong>
+                      <span>{tx.occurredOn} · {tx.accountName} · {formatBrlCents(tx.amountCents)}</span>
+                      {doc && <span>Documento: {doc.originalName} · {formatFileSize(doc.sizeBytes)}</span>}
+                    </p>
+                    {documentPanel.kind === 'replace' && <>
+                      <p className="context-note">O arquivo anterior continua guardado; entregas já capturadas não mudam.</p>
+                      <div className="field">
+                        <label htmlFor="document-panel-file">Novo arquivo (PDF, PNG ou JPEG, até 5 MiB)</label>
+                        <input id="document-panel-file" type="file" accept=".pdf,.png,.jpg,.jpeg,application/pdf,image/png,image/jpeg" disabled={busyAction !== null} aria-invalid={documentPanelFileError !== null}
+                          onChange={(e) => chooseReplacementFile(e.target.files?.[0] ?? null)} />
+                        {documentPanelFileError && <p className="field-error" role="alert">{documentPanelFileError}</p>}
+                      </div>
+                    </>}
+                    {documentPanel.kind === 'unlink' && <p className="context-note">O documento não é apagado. Se o lançamento ficar sem comprovante, a pendência de comprovante ausente volta.</p>}
+                    {documentPanel.kind === 'link' && (linkable.length === 0
+                      ? <p className="empty-hint">Nenhum outro documento do mês está disponível para este lançamento.</p>
+                      : <div className="field">
+                        <label htmlFor="document-panel-link">Documento do mês</label>
+                        <select id="document-panel-link" value={documentLinkId} disabled={busyAction !== null} onChange={(e) => { setDocumentPanelMessage(null); setDocumentLinkId(e.target.value); }}>
+                          <option value="">Selecione um documento</option>
+                          {linkable.map((entry) => <option key={entry.documentId} value={entry.documentId}>{entry.originalName} ({formatFileSize(entry.sizeBytes)})</option>)}
+                        </select>
+                      </div>)}
+                    {documentPanelMessage && <p className="field-error" role="alert">{documentPanelMessage}</p>}
+                    <div className="form-actions">
+                      <button type="submit" className="btn btn-primary" disabled={!canSubmit || (documentPanel.kind === 'replace' && (!documentPanelFile || documentPanelFileError !== null)) || (documentPanel.kind === 'link' && !documentLinkId)}>
+                        {busyAction === 'document-change' ? 'Gravando…' : documentPanel.kind === 'replace' ? 'Substituir documento' : documentPanel.kind === 'unlink' ? 'Confirmar: desvincular' : 'Vincular documento'}
+                      </button>
+                      {closeButton}
+                    </div>
+                  </form>);
+                })()}
+
                 <details className="secondary-disclosure"><summary>Ver todos os lançamentos ({preview?.transactions.length ?? 0})</summary>
 
                 {dataStatus !== 'ready' ? <p className="empty-hint">Carregue o mês para ver os lançamentos.</p> : (preview?.transactions.length ?? 0) === 0 ? (
@@ -2240,7 +2477,18 @@ export function App() {
                               {formatBrlCents(tx.amountCents)}
                             </td>
                             <td>
-                              <span className="mono">{tx.documentIds.length} anexo(s)</span>
+                              <span className="mono">{documentsByTx.get(tx.transactionId)?.length ?? 0} anexo(s)</span>
+                              {(documentsByTx.get(tx.transactionId)?.length ?? 0) > 0 && <ul className="doc-list">
+                                {documentsByTx.get(tx.transactionId)!.map((doc) => <li key={doc.documentId} className="doc-item">
+                                  <span className="doc-name">{doc.originalName}</span>
+                                  <span className="doc-meta">{DOCUMENT_TYPE_LABELS[doc.mimeType] ?? doc.mimeType} · {formatFileSize(doc.sizeBytes)}</span>
+                                  <div className="row-actions">
+                                    <a className="btn-link" href={`/api/v1/documents/${encodeURIComponent(doc.documentId)}/content`} download>Baixar</a>
+                                    <button type="button" className="btn-link" disabled={busyAction !== null || dataStatus !== 'ready'} onClick={() => openDocumentPanel({ kind: 'replace', transactionId: tx.transactionId, documentId: doc.documentId })}>Substituir</button>
+                                    <button type="button" className="btn-link" disabled={busyAction !== null || dataStatus !== 'ready'} onClick={() => openDocumentPanel({ kind: 'unlink', transactionId: tx.transactionId, documentId: doc.documentId })}>Desvincular</button>
+                                  </div>
+                                </li>)}
+                              </ul>}
                               <div>
                                 <button
                                   type="button"
@@ -2252,6 +2500,9 @@ export function App() {
                                   Selecionar p/ upload
                                 </button>
                               </div>
+                              {linkableDocuments(documents, tx.transactionId).length > 0 && <div>
+                                <button type="button" className="btn-link" disabled={busyAction !== null || dataStatus !== 'ready'} onClick={() => openDocumentPanel({ kind: 'link', transactionId: tx.transactionId })}>Vincular documento do mês</button>
+                              </div>}
                               {tx.reimbursementStatus === 'PENDENTE_REEMBOLSO' && <div>
                                 <button type="button" className="btn-link" disabled={busyAction !== null || dataStatus !== 'ready'} onClick={() => void openReimbursementLink(tx.transactionId)}>Vincular reembolso</button>
                               </div>}
