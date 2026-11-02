@@ -1,15 +1,18 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import type { FormEvent } from 'react';
+import type { FormEvent, ReactNode } from 'react';
 import {
   allowedClassifications,
+  allowedPendingActions,
   attemptLogout,
   buildTransactionPatch,
   buildVerifierCommand,
   canMarkPfBusinessExpense,
   defaultDateForMonth,
   describeApiError,
+  describePendingError,
   formatBrlCents,
   generateIdempotencyKey,
+  hasQuestion,
   isValidPeriodMonth,
   lockedFieldsForLinked,
   nextVersionRequiresReason,
@@ -20,8 +23,9 @@ import {
   compatibleInflows,
   shiftPeriodMonth,
   validateDocumentFile,
+  validatePendingText,
 } from './ledger.mjs';
-import type { AccountType, Classification, Direction } from './ledger.mjs';
+import type { AccountType, Classification, Direction, PendingAction } from './ledger.mjs';
 
 interface SessionContext {
   userId: string;
@@ -103,6 +107,17 @@ interface TransactionDraft {
   isPfBusinessExpense: boolean;
   explanation: string;
 }
+
+type PendingPanelState =
+  | { kind: 'create'; transactionId: string }
+  | { kind: 'manage' | 'justify' | 'edit' | 'resolve' | 'reopen'; pendingId: string };
+
+const JUSTIFICATION_DISCLAIMER = 'A justificativa é uma declaração sua. Ela não resolve a pendência nem valida o lançamento fiscalmente.';
+const AUTOMATIC_PENDING_GUIDANCE = 'Resolva eliminando a causa (anexar comprovante, vincular reembolso ou corrigir o lançamento).';
+const PENDING_ACTION_LABELS: Record<PendingAction, string> = { JUSTIFY: 'Justificar', EDIT: 'Editar texto', RESOLVE: 'Resolver', REOPEN: 'Reabrir' };
+const PENDING_ACTION_PANEL: Record<PendingAction, 'justify' | 'edit' | 'resolve' | 'reopen'> = { JUSTIFY: 'justify', EDIT: 'edit', RESOLVE: 'resolve', REOPEN: 'reopen' };
+const PENDING_PANEL_ACTION: Record<'justify' | 'edit' | 'resolve' | 'reopen', PendingAction> = { justify: 'JUSTIFY', edit: 'EDIT', resolve: 'RESOLVE', reopen: 'REOPEN' };
+const PENDING_STATUS_LABELS: Record<PreviewPending['status'], string> = { PENDENTE: 'Aberta', JUSTIFICADA: 'Justificada', RESOLVIDA: 'Resolvida' };
 
 const LINKED_TRANSACTION_GUIDANCE = 'Este lançamento participa de um reembolso. Desfaça o vínculo para mudar valor, data, conta, direção, classificação ou marca empresarial.';
 
@@ -325,6 +340,15 @@ export function App() {
   const txPanelRef = useRef<HTMLElement | null>(null);
   const txPanelTriggerRef = useRef<HTMLElement | null>(null);
 
+  // Pending cycle panel
+  const [pendingPanel, setPendingPanel] = useState<PendingPanelState | null>(null);
+  const [pendingText, setPendingText] = useState('');
+  const [pendingPanelRevision, setPendingPanelRevision] = useState<number | null>(null);
+  const [pendingPanelMessage, setPendingPanelMessage] = useState<{ tone: 'warn' | 'err'; text: string } | null>(null);
+  const pendingPanelSequence = useRef(0);
+  const pendingPanelRef = useRef<HTMLElement | null>(null);
+  const pendingPanelTriggerRef = useRef<HTMLElement | null>(null);
+
   // Delivery capture form
   const [idempotencyKey, setIdempotencyKey] = useState(() => generateIdempotencyKey());
   const [rectificationReason, setRectificationReason] = useState('');
@@ -356,6 +380,7 @@ export function App() {
     if (accPage.status === 401 || prevRes.status === 401 || delPage.status === 401) {
       closeReimbursementPanel();
       closeTransactionPanel();
+      closePendingPanel();
       setSession(null);
       setDataStatus('loading');
       setNotice({
@@ -438,6 +463,7 @@ export function App() {
     if (!session) {
       closeReimbursementPanel();
       closeTransactionPanel();
+      closePendingPanel();
     }
   }, [session]);
 
@@ -447,6 +473,13 @@ export function App() {
       setNotice((current) => current ?? { tone: 'warn', title: 'Visão atualizada', detail: 'O caderno mudou enquanto o painel do lançamento estava aberto. Reabra o lançamento para conferir os dados atuais.' });
     }
   }, [preview?.revision, txPanel, txPanelRevision]);
+
+  useEffect(() => {
+    if (pendingPanel && pendingPanelRevision !== null && preview && preview.revision !== pendingPanelRevision) {
+      closePendingPanel(true);
+      setNotice((current) => current ?? { tone: 'warn', title: 'Visão atualizada', detail: 'O caderno mudou enquanto o painel de pendência estava aberto. Reabra a pendência para conferir os dados atuais.' });
+    }
+  }, [preview?.revision, pendingPanel, pendingPanelRevision]);
 
   useEffect(() => {
     if (reimbPanel && reimbRevision !== null && preview && preview.revision !== reimbRevision) {
@@ -555,6 +588,7 @@ export function App() {
     loadSequence.current += 1;
     closeReimbursementPanel();
     closeTransactionPanel();
+    closePendingPanel();
     setBusyAction('logout');
     const outcome = await attemptLogout(session.csrfToken);
     setBusyAction(null);
@@ -589,6 +623,7 @@ export function App() {
     operationContext.current += 1;
     closeReimbursementPanel();
     closeTransactionPanel();
+    closePendingPanel();
     setPeriodMonth(nextMonth);
     setPreview(null);
     setDeliveries([]);
@@ -869,6 +904,7 @@ export function App() {
     const trigger = active instanceof HTMLElement && active !== document.body ? active : reimbTriggerRef.current;
     closeReimbursementPanel();
     closeTransactionPanel();
+    closePendingPanel();
     reimbTriggerRef.current = trigger;
     setReimbPanel(state);
     setReimbRevision(preview?.revision ?? null);
@@ -937,7 +973,9 @@ export function App() {
       const updatedSession = { ...session, revision: body.revision };
       setSession(updatedSession);
       closeReimbursementPanel();
-      setNotice({ tone: 'ok', title: okTitle, detail: `Alteração gravada na revisão #${body.revision}.` });
+      setNotice(body.revision === pendingPanelRevision
+        ? { tone: 'ok', title: 'Nenhuma alteração', detail: `O texto enviado é igual ao existente; a revisão continua #${body.revision}.` }
+        : { tone: 'ok', title: okTitle, detail: `Alteração gravada na revisão #${body.revision}.` });
       await loadWorkspaceData(periodMonth, updatedSession);
       restoreReimbursementFocus();
     } catch {
@@ -986,6 +1024,7 @@ export function App() {
     const trigger = active instanceof HTMLElement && active !== document.body ? active : txPanelTriggerRef.current;
     closeReimbursementPanel();
     closeTransactionPanel();
+    closePendingPanel();
     txPanelTriggerRef.current = trigger;
     setTxPanel({ kind, transactionId: tx.transactionId });
     setTxDraft(draftFromTransaction(tx));
@@ -1102,6 +1141,150 @@ export function App() {
     void submitTransactionChange('DELETE', txPanel.transactionId, {}, 'Lançamento excluído', 'Exclusão recusada');
   }
 
+  function closePendingPanel(restoreFocus = false) {
+    pendingPanelSequence.current += 1;
+    setPendingPanel(null);
+    setPendingText('');
+    setPendingPanelRevision(null);
+    setPendingPanelMessage(null);
+    if (restoreFocus) restorePendingFocus();
+  }
+
+  function restorePendingFocus() {
+    window.requestAnimationFrame(() => window.requestAnimationFrame(() => {
+      const trigger = pendingPanelTriggerRef.current;
+      if (trigger?.isConnected && !(trigger as HTMLButtonElement).disabled) trigger.focus({ preventScroll: true });
+      else pendingSectionRef.current?.focus({ preventScroll: true });
+    }));
+  }
+
+  function focusPendingPanel() {
+    const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    window.requestAnimationFrame(() => {
+      pendingPanelRef.current?.scrollIntoView({ behavior: reduceMotion ? 'auto' : 'smooth', block: 'start' });
+      pendingPanelRef.current?.focus({ preventScroll: true });
+    });
+  }
+
+  function initialPendingText(state: PendingPanelState) {
+    if (state.kind === 'create') return '';
+    const item = preview?.pendingItems.find((entry) => entry.pendingId === state.pendingId);
+    if (!item) return '';
+    return state.kind === 'edit' ? item.description : state.kind === 'justify' ? item.justification : '';
+  }
+
+  function openPendingPanel(state: PendingPanelState) {
+    if (!session || busyAction !== null || dataStatus !== 'ready') return;
+    const active = document.activeElement;
+    const trigger = active instanceof HTMLElement && active !== document.body ? active : pendingPanelTriggerRef.current;
+    closeReimbursementPanel();
+    closeTransactionPanel();
+    closePendingPanel();
+    pendingPanelTriggerRef.current = trigger;
+    setPendingPanel(state);
+    setPendingText(initialPendingText(state));
+    setPendingPanelRevision(preview?.revision ?? null);
+    setActiveSection('review');
+    focusPendingPanel();
+  }
+
+  function switchPendingPanel(kind: 'justify' | 'edit' | 'resolve' | 'reopen', pendingId: string) {
+    if (busyAction !== null || dataStatus !== 'ready') return;
+    const state: PendingPanelState = { kind, pendingId };
+    setPendingPanel(state);
+    setPendingText(initialPendingText(state));
+    setPendingPanelMessage(null);
+    focusPendingPanel();
+  }
+
+  async function submitPendingChange(method: 'POST' | 'PATCH', url: string, payload: Record<string, unknown>, okTitle: string, failTitle: string) {
+    if (!session || !preview || pendingPanelRevision === null || preview.revision !== pendingPanelRevision || busyAction !== null || dataStatus !== 'ready') return;
+    const sequence = pendingPanelSequence.current;
+    const month = periodMonth;
+    setBusyAction('pending-change');
+    pendingPanelRef.current?.focus({ preventScroll: true });
+    setNotice(null);
+    setPendingPanelMessage(null);
+    try {
+      const res = await fetch(url, {
+        method,
+        credentials: 'same-origin',
+        headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': session.csrfToken },
+        body: JSON.stringify({ ...payload, expectedRevision: pendingPanelRevision }),
+      });
+      const body = await res.json().catch(() => null);
+      if (sequence !== pendingPanelSequence.current || month !== periodMonth) {
+        if (res.status !== 401) await loadWorkspaceData(periodMonth, session);
+        return;
+      }
+      if (!res.ok) {
+        if (res.status === 401) {
+          await loadWorkspaceData(periodMonth, session);
+          return;
+        }
+        const err = describePendingError(res.status, body);
+        setPendingPanelMessage({ tone: 'err', text: err.message });
+        setNotice({ tone: 'err', title: failTitle, detail: err.message, code: err.code });
+        await loadWorkspaceData(periodMonth, session);
+        return;
+      }
+      if (!isRevisionResult(body)) {
+        closePendingPanel();
+        setNotice({ tone: 'err', title: 'Resposta inesperada do servidor', detail: 'A operação pode ter sido gravada. Confira as pendências na visão atualizada antes de repetir.' });
+        await loadWorkspaceData(periodMonth, session);
+        return;
+      }
+      const updatedSession = { ...session, revision: body.revision };
+      setSession(updatedSession);
+      closePendingPanel();
+      setNotice({ tone: 'ok', title: okTitle, detail: `Alteração gravada na revisão #${body.revision}.` });
+      await loadWorkspaceData(periodMonth, updatedSession);
+      restorePendingFocus();
+    } catch {
+      setNotice({ tone: 'err', title: 'Conexão interrompida', detail: 'Atualize a visão e confira as pendências antes de repetir a operação.' });
+    } finally {
+      setBusyAction(null);
+    }
+  }
+
+  function handleSubmitPendingPanel(event: FormEvent) {
+    event.preventDefault();
+    if (!pendingPanel || pendingPanel.kind === 'manage' || !preview || busyAction !== null || dataStatus !== 'ready') return;
+    if (pendingPanel.kind === 'create') {
+      if (hasQuestion(preview.pendingItems, pendingPanel.transactionId)) return;
+      const text = validatePendingText(pendingText);
+      if (text.error) { setPendingPanelMessage({ tone: 'warn', text: text.error }); return; }
+      void submitPendingChange('POST', `/api/v1/transactions/${encodeURIComponent(pendingPanel.transactionId)}/questions`, { description: text.value }, 'Dúvida registrada', 'Registro de dúvida recusado');
+      return;
+    }
+    const item = preview.pendingItems.find((entry) => entry.pendingId === pendingPanel.pendingId);
+    if (!item) return;
+    const action = PENDING_PANEL_ACTION[pendingPanel.kind];
+    if (!allowedPendingActions(item).includes(action)) return;
+    const url = `/api/v1/pending-items/${encodeURIComponent(item.pendingId)}`;
+    if (action === 'JUSTIFY' || action === 'EDIT') {
+      const text = validatePendingText(pendingText);
+      if (text.error) { setPendingPanelMessage({ tone: 'warn', text: text.error }); return; }
+      if (action === 'JUSTIFY') void submitPendingChange('PATCH', url, { action, justification: text.value }, 'Justificativa registrada', 'Justificativa recusada');
+      else void submitPendingChange('PATCH', url, { action, description: text.value }, 'Dúvida editada', 'Edição da dúvida recusada');
+      return;
+    }
+    if (action === 'RESOLVE') void submitPendingChange('PATCH', url, { action }, 'Dúvida resolvida', 'Resolução recusada');
+    else void submitPendingChange('PATCH', url, { action }, 'Dúvida reaberta', 'Reabertura recusada');
+  }
+
+  function renderPendingActions(item: PreviewPending) {
+    const actions = allowedPendingActions(item);
+    const locked = busyAction !== null || dataStatus !== 'ready';
+    const automatic = item.pendingType !== 'DUVIDA_CADASTRADA';
+    return <>
+      {actions.map((action) => (
+        <button key={action} type="button" className="btn btn-outline" disabled={locked} onClick={() => openPendingPanel({ kind: PENDING_ACTION_PANEL[action], pendingId: item.pendingId })}>{PENDING_ACTION_LABELS[action]}</button>
+      ))}
+      {automatic && item.status !== 'RESOLVIDA' && <span className="pending-guidance">{AUTOMATIC_PENDING_GUIDANCE}</span>}
+    </>;
+  }
+
   function describeTransaction(transactionId: string | null) {
     if (!transactionId || !preview) return 'Não informada';
     const tx = [...preview.transactions, ...preview.contextTransactions].find((item) => item.transactionId === transactionId);
@@ -1125,6 +1308,10 @@ export function App() {
         const tx = preview?.transactions.find((item) => item.transactionId === nextAction.transactionId);
         return { title: 'Falta vincular um reembolso', detail: tx ? `${tx.descriptionOriginal} · ${tx.occurredOn} · ${formatBrlCents(tx.amountCents)}` : 'Escolha a transferência PJ que reembolsou esta despesa paga em conta PF.', button: 'Vincular reembolso' };
       }
+      case 'question': {
+        const item = preview?.pendingItems.find((entry) => entry.pendingType === 'DUVIDA_CADASTRADA' && entry.status === 'PENDENTE' && entry.transactionId === nextAction.transactionId);
+        return { title: 'Revise a dúvida registrada', detail: item ? item.description : 'Há uma dúvida em aberto neste mês. Justifique ou resolva para seguir.', button: 'Revisar dúvida' };
+      }
       case 'review': return { title: 'Confira as pendências', detail: 'Confira estes itens. Eles continuarão registrados na entrega.', button: 'Ver pendências' };
       case 'capture': return { title: latestDelivery?.status === 'FALHA' ? 'Prepare uma nova entrega' : latestDelivery ? 'O acervo mudou desde a última entrega' : 'Pronto para preparar a entrega', detail: latestDelivery?.status === 'FALHA' ? 'A última operação falhou. Uma nova captura gera outra versão.' : latestDelivery ? 'A versão anterior preserva a revisão capturada. Prepare uma nova versão para incluir alterações recentes.' : 'Os lançamentos do mês podem ser preservados em um pacote auditável.', button: 'Abrir entregas' };
       case 'delivery': return { title: latestDelivery?.status === 'PRONTA' ? `Entrega v${latestDelivery.versionNumber} disponível` : `Entrega v${latestDelivery?.versionNumber ?? ''} em preparo`, detail: latestDelivery?.status === 'PRONTA' ? 'Baixe o pacote e o manifesto para conferência independente.' : 'Acompanhe a preparação do pacote; o status atualiza automaticamente.', button: 'Ver entrega' };
@@ -1135,6 +1322,11 @@ export function App() {
   function openNextAction() {
     if (nextAction.kind === 'document') { chooseUploadTransaction(nextAction.transactionId); return; }
     if (nextAction.kind === 'reimbursement') { void openReimbursementLink(nextAction.transactionId); return; }
+    if (nextAction.kind === 'question') {
+      const item = preview?.pendingItems.find((entry) => entry.pendingType === 'DUVIDA_CADASTRADA' && entry.status === 'PENDENTE' && entry.transactionId === nextAction.transactionId);
+      if (item) openPendingPanel({ kind: 'manage', pendingId: item.pendingId });
+      return;
+    }
     if (nextAction.kind === 'loading') { void loadWorkspaceData(periodMonth, session); return; }
     if (nextAction.kind === 'accounts' || nextAction.kind === 'transactions') { setActiveSection(nextAction.kind); return; }
     if (nextAction.kind === 'capture' || nextAction.kind === 'delivery') { setActiveSection('deliveries'); return; }
@@ -1638,7 +1830,7 @@ export function App() {
                   <span className="section-kicker">Próximo passo</span>
                   <h2 id="heading-preview-totals">{nextActionContent.title}</h2>
                   <p>{nextActionContent.detail}</p>
-                  <button type="button" className="btn btn-primary" disabled={busyAction !== null || (nextAction.kind === 'reimbursement' && dataStatus !== 'ready')} onClick={openNextAction}>{nextActionContent.button} <Icon name="arrow" /></button>
+                  <button type="button" className="btn btn-primary" disabled={busyAction !== null || ((nextAction.kind === 'reimbursement' || nextAction.kind === 'question') && dataStatus !== 'ready')} onClick={openNextAction}>{nextActionContent.button} <Icon name="arrow" /></button>
                 </div>
 
                 {reimbPanel && <section className="reimb-panel" role="dialog" aria-modal="false" aria-labelledby="heading-reimb" tabIndex={-1} ref={reimbPanelRef}
@@ -1834,7 +2026,11 @@ export function App() {
                         <p>{tx ? `${tx.descriptionOriginal} · ${tx.occurredOn} · ${formatBrlCents(tx.amountCents)}` : item.description}</p>
                         {tx && <small>{item.description}</small>}
                       </div>
-                      {item.pendingType === 'DOCUMENTO_AUSENTE' ? <button type="button" className="btn btn-outline" onClick={() => chooseUploadTransaction(item.transactionId)}>Anexar comprovante <Icon name="arrow" /></button> : item.pendingType === 'REEMBOLSO_PF_PENDENTE' ? <button type="button" className="btn btn-outline" disabled={busyAction !== null || dataStatus !== 'ready'} onClick={() => void openReimbursementLink(item.transactionId)}>Vincular reembolso <Icon name="arrow" /></button> : <span className="pending-guidance">Acompanhar na entrega</span>}
+                      <div className="pending-actions">
+                        {item.pendingType === 'DOCUMENTO_AUSENTE' && <button type="button" className="btn btn-outline" onClick={() => chooseUploadTransaction(item.transactionId)}>Anexar comprovante <Icon name="arrow" /></button>}
+                        {item.pendingType === 'REEMBOLSO_PF_PENDENTE' && <button type="button" className="btn btn-outline" disabled={busyAction !== null || dataStatus !== 'ready'} onClick={() => void openReimbursementLink(item.transactionId)}>Vincular reembolso <Icon name="arrow" /></button>}
+                        {renderPendingActions(item)}
+                      </div>
                     </li>;
                   })}
                 </ul>}
@@ -1926,6 +2122,80 @@ export function App() {
                   </section>;
                 })()}
 
+                {pendingPanel && (() => {
+                  const canSubmit = busyAction === null && dataStatus === 'ready';
+                  const closeButton = <button type="button" className="btn btn-outline" disabled={busyAction !== null} onClick={() => closePendingPanel(true)}>Cancelar</button>;
+                  const shell = (children: ReactNode) => <section className="reimb-panel" role="dialog" aria-modal="false" aria-labelledby="heading-pending-panel" tabIndex={-1} ref={pendingPanelRef}
+                    onKeyDown={(event) => { if (event.key === 'Escape' && busyAction === null) closePendingPanel(true); }}>{children}</section>;
+                  const unavailable = (title: string, text: string, extra?: ReactNode) => shell(<>
+                    <h3 id="heading-pending-panel">{title}</h3>
+                    {extra}
+                    <p className="empty-hint">{text}</p>
+                    <div className="form-actions"><button type="button" className="btn btn-outline" disabled={busyAction !== null} onClick={() => closePendingPanel(true)}>Fechar</button></div>
+                  </>);
+                  const textTooLong = pendingText.trim().length > 2000;
+                  const textField = (label: string) => <div className="field">
+                    <label htmlFor="pending-text">{label}</label>
+                    <textarea id="pending-text" value={pendingText} disabled={busyAction !== null} aria-invalid={textTooLong} aria-describedby="pending-char-count" onChange={(e) => { setPendingPanelMessage(null); setPendingText(e.target.value); }} />
+                    <small className={textTooLong ? 'char-count char-count-over mono' : 'char-count mono'} id="pending-char-count">{pendingText.trim().length} / 2.000</small>
+                  </div>;
+                  const message = pendingPanelMessage && <p className={pendingPanelMessage.tone === 'err' ? 'field-error' : 'context-note'} role={pendingPanelMessage.tone === 'err' ? 'alert' : 'status'}>{pendingPanelMessage.text}</p>;
+                  if (pendingPanel.kind === 'create') {
+                    const tx = preview?.transactions.find((entry) => entry.transactionId === pendingPanel.transactionId);
+                    if (!tx || !preview) return unavailable('Lançamento indisponível', 'Este lançamento não está mais na visão do mês. Atualize a visão.');
+                    if (hasQuestion(preview.pendingItems, tx.transactionId)) return unavailable('Dúvida já registrada', 'Este lançamento já tem uma dúvida. Edite ou reabra a dúvida existente.');
+                    return shell(<form onSubmit={handleSubmitPendingPanel}>
+                      <h3 id="heading-pending-panel">Registrar dúvida</h3>
+                      <p className="reimb-expense"><strong>{tx.descriptionOriginal}</strong><span>{tx.occurredOn} · {tx.accountName} · {formatBrlCents(tx.amountCents)}</span></p>
+                      {textField('Dúvida sobre este lançamento')}
+                      {message}
+                      <div className="form-actions">
+                        <button type="submit" className="btn btn-primary" disabled={!canSubmit}>{busyAction === 'pending-change' ? 'Gravando…' : 'Registrar dúvida'}</button>
+                        {closeButton}
+                      </div>
+                    </form>);
+                  }
+                  const item = preview?.pendingItems.find((entry) => entry.pendingId === pendingPanel.pendingId);
+                  if (!item) return unavailable('Pendência indisponível', 'Esta pendência não está mais na visão do mês. Atualize a visão.');
+                  const tx = preview?.transactions.find((entry) => entry.transactionId === item.transactionId);
+                  const allowed = allowedPendingActions(item);
+                  const summary = <p className="reimb-expense">
+                    <strong>{PENDING_TYPE_LABELS[item.pendingType]} · {PENDING_STATUS_LABELS[item.status]}</strong>
+                    <span>{tx ? `${tx.descriptionOriginal} · ${tx.occurredOn} · ${formatBrlCents(tx.amountCents)}` : 'Lançamento fora da visão carregada'}</span>
+                    <span>{item.description}</span>
+                    {item.justification && <span>Justificativa: {item.justification}</span>}
+                  </p>;
+                  if (pendingPanel.kind === 'manage') {
+                    return shell(<>
+                      <h3 id="heading-pending-panel">Dúvida registrada</h3>
+                      {summary}
+                      {allowed.length === 0 && <p className="empty-hint">Nenhuma ação disponível para esta pendência.</p>}
+                      <div className="form-actions">
+                        {allowed.map((entry) => <button key={entry} type="button" className="btn btn-outline" disabled={!canSubmit} onClick={() => switchPendingPanel(PENDING_ACTION_PANEL[entry], item.pendingId)}>{PENDING_ACTION_LABELS[entry]}</button>)}
+                        <button type="button" className="btn btn-outline" disabled={busyAction !== null} onClick={() => closePendingPanel(true)}>Fechar</button>
+                      </div>
+                    </>);
+                  }
+                  const action = PENDING_PANEL_ACTION[pendingPanel.kind];
+                  if (!allowed.includes(action)) return unavailable('Ação indisponível', 'O estado desta pendência mudou e a ação não está mais disponível. Atualize a visão.', summary);
+                  return shell(<form onSubmit={handleSubmitPendingPanel}>
+                    <h3 id="heading-pending-panel">{action === 'JUSTIFY' ? 'Justificar pendência' : action === 'EDIT' ? 'Editar texto da dúvida' : action === 'RESOLVE' ? 'Resolver dúvida' : 'Reabrir dúvida'}</h3>
+                    {summary}
+                    {action === 'JUSTIFY' && <>
+                      <p className="context-note">{JUSTIFICATION_DISCLAIMER}</p>
+                      {textField('Justificativa')}
+                    </>}
+                    {action === 'EDIT' && textField('Texto da dúvida')}
+                    {action === 'RESOLVE' && <p>A dúvida passa a resolvida e deixa de contar como pendência em aberto. A justificativa registrada é mantida.</p>}
+                    {action === 'REOPEN' && <p className="context-note">Ao reabrir, a dúvida volta a ficar em aberto e a justificativa registrada é apagada.</p>}
+                    {message}
+                    <div className="form-actions">
+                      <button type="submit" className="btn btn-primary" disabled={!canSubmit}>{busyAction === 'pending-change' ? 'Gravando…' : action === 'JUSTIFY' ? 'Registrar justificativa' : action === 'EDIT' ? 'Salvar texto' : action === 'RESOLVE' ? 'Confirmar: resolver' : 'Confirmar: reabrir'}</button>
+                      {closeButton}
+                    </div>
+                  </form>);
+                })()}
+
                 <details className="secondary-disclosure"><summary>Ver todos os lançamentos ({preview?.transactions.length ?? 0})</summary>
 
                 {dataStatus !== 'ready' ? <p className="empty-hint">Carregue o mês para ver os lançamentos.</p> : (preview?.transactions.length ?? 0) === 0 ? (
@@ -1990,6 +2260,12 @@ export function App() {
                               <div className="row-actions">
                                 <button type="button" className="btn-link" disabled={busyAction !== null || dataStatus !== 'ready'} onClick={() => openTransactionPanel('edit', tx)}>Corrigir</button>
                                 <button type="button" className="btn-link" disabled={busyAction !== null || dataStatus !== 'ready'} onClick={() => openTransactionPanel('delete', tx)}>Excluir</button>
+                                {(() => {
+                                  const question = preview!.pendingItems.find((entry) => entry.transactionId === tx.transactionId && entry.pendingType === 'DUVIDA_CADASTRADA');
+                                  return question
+                                    ? <button type="button" className="btn-link" disabled={busyAction !== null || dataStatus !== 'ready'} onClick={() => openPendingPanel({ kind: 'manage', pendingId: question.pendingId })}>Dúvida: {PENDING_STATUS_LABELS[question.status].toLowerCase()}</button>
+                                    : <button type="button" className="btn-link" disabled={busyAction !== null || dataStatus !== 'ready'} onClick={() => openPendingPanel({ kind: 'create', transactionId: tx.transactionId })}>Registrar dúvida</button>;
+                                })()}
                               </div>
                             </td>
                           </tr>
@@ -2000,7 +2276,7 @@ export function App() {
                 )}
 
                 </details>
-                {otherPendings.length > 0 && <details className="secondary-disclosure"><summary>Ver itens justificados ou resolvidos ({otherPendings.length})</summary><ul className="pending-list">{otherPendings.map((item) => <li key={item.pendingId} className="pending-row"><span className={`pending-badge badge-${item.status.toLowerCase()}`}>{item.status}</span><span>{PENDING_TYPE_LABELS[item.pendingType]} · {item.description}</span></li>)}</ul></details>}
+                {otherPendings.length > 0 && <details className="secondary-disclosure"><summary>Ver itens justificados ou resolvidos ({otherPendings.length})</summary><ul className="pending-list">{otherPendings.map((item) => <li key={item.pendingId} className="pending-row"><div><span className={`pending-badge badge-${item.status.toLowerCase()}`}>{item.status}</span><span>{PENDING_TYPE_LABELS[item.pendingType]} · {item.description}</span>{item.justification && <p className="pending-note">Justificativa: {item.justification}</p>}</div><div className="pending-actions">{renderPendingActions(item)}</div></li>)}</ul></details>}
               </section>}
 
               {/* 6. Captura Imutável, Executor e Downloads (I07 + I08 + I09) */}

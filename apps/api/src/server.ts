@@ -16,8 +16,10 @@ import type { DeliveriesPort } from './ports/deliveries.js';
 import { handleDeliveries } from './deliveries/http.js';
 import type { ReimbursementsPort } from './ports/reimbursements.js';
 import { handleReimbursements } from './reimbursements/http.js';
+import type { PendingItemsPort } from './ports/pending-items.js';
+import { handlePendingItems } from './pending/http.js';
 
-export function createApp(persistence: PersistencePort, webRoot: string, authentication?: SessionHttpOptions, accounts?: AccountsPort, transactions?: TransactionsPort, documents?: DocumentsPort, preview?: PreviewPort, deliveries?: DeliveriesPort, reimbursements?: ReimbursementsPort) {
+export function createApp(persistence: PersistencePort, webRoot: string, authentication?: SessionHttpOptions, accounts?: AccountsPort, transactions?: TransactionsPort, documents?: DocumentsPort, preview?: PreviewPort, deliveries?: DeliveriesPort, reimbursements?: ReimbursementsPort, pendingItems?: PendingItemsPort) {
   return createServer({ requestTimeout: 10000, headersTimeout: 5000, maxHeaderSize: 8192 }, (req, res) => {
     void (async () => {
       res.setHeader('X-Content-Type-Options', 'nosniff');
@@ -28,6 +30,11 @@ export function createApp(persistence: PersistencePort, webRoot: string, authent
       if (path === '/api/v1/transactions' && authentication && transactions) { await handleTransactions(req, res, authentication, transactions); return; }
       const transactionItem = /^\/api\/v1\/transactions\/([^/]+)$/.exec(path);
       if (transactionItem && authentication && transactions) { await handleTransactions(req, res, authentication, transactions, transactionItem[1]!); return; }
+      const question = /^\/api\/v1\/transactions\/([^/]+)\/questions$/.exec(path);
+      if (question && authentication && pendingItems) { await handlePendingItems(req, res, authentication, pendingItems, { kind: 'question', transactionId: question[1]! }); return; }
+      if (path === '/api/v1/pending-items' && authentication && pendingItems) { await handlePendingItems(req, res, authentication, pendingItems, { kind: 'collection' }); return; }
+      const pendingItem = /^\/api\/v1\/pending-items\/([^/]+)$/.exec(path);
+      if (pendingItem && authentication && pendingItems) { await handlePendingItems(req, res, authentication, pendingItems, { kind: 'item', id: pendingItem[1]! }); return; }
       const upload = /^\/api\/v1\/transactions\/([^/]+)\/documents$/.exec(path);
       if (upload && authentication && documents) { await handleDocuments(req, res, authentication, documents, upload[1]!); return; }
       const monthPreview = /^\/api\/v1\/periods\/([^/]+)\/preview$/.exec(path);

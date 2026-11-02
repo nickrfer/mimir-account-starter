@@ -1,0 +1,281 @@
+openapi: 3.1.0
+info:
+  title: Mimir Contabilidade Pendencias
+  version: 0.1.0
+  description: Contrato complementar do RF-08 (I13). Acrescenta listagem de pendencias,
+    registro de duvida manual e justificativa, resolucao, reabertura e edicao de pendencias
+    sem alterar openapi-jornada-inicial.yaml 0.5.0, openapi-reembolsos.yaml 0.1.0 nem
+    openapi-lancamentos.yaml 0.1.0. Mutacoes exigem cookie de sessao, X-CSRF-Token e
+    Origin permitido, bloqueiam o espaco, comparam expectedRevision e incrementam revision
+    uma unica vez somente quando ha mudanca efetiva. Justificativa e declaracao do usuario;
+    nao resolve a pendencia nem valida fiscalmente. Pendencia automatica so se resolve
+    eliminando a causa.
+servers:
+- url: http://localhost:3000/api/v1
+  description: Endereco local de desenvolvimento
+security:
+- sessionCookie: []
+paths:
+  /pending-items:
+    get:
+      operationId: listPendingItems
+      summary: Listar pendencias de lancamentos ativos do mes
+      description: Ordenadas por pendingType (collation C) e pendingId; filtra o espaco e
+        lancamentos ativos antes de paginar. Nao altera revision.
+      parameters:
+      - name: periodMonth
+        in: query
+        required: true
+        schema: {$ref: '#/components/schemas/PeriodMonth'}
+      - $ref: '#/components/parameters/Cursor'
+      - $ref: '#/components/parameters/Limit'
+      responses:
+        '200':
+          description: Pagina de pendencias. revision e lida no mesmo instante da pagina;
+            paginas com revision diferente vieram de estados diferentes e nao devem ser
+            combinadas.
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/PendingItemPage'}
+        '400':
+          description: INVALID_QUERY (parametro ausente, repetido, limite ou cursor invalido)
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/Error'}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+        '403': {$ref: '#/components/responses/Forbidden'}
+        '422':
+          description: INVALID_MONTH
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/Error'}
+        '500': {$ref: '#/components/responses/Internal'}
+  /transactions/{transactionId}/questions:
+    parameters:
+    - name: transactionId
+      in: path
+      required: true
+      schema: {type: string, format: uuid}
+    post:
+      operationId: registerQuestion
+      summary: Registrar duvida manual em lancamento ativo
+      description: No maximo uma duvida por lancamento, em qualquer estado; a segunda
+        retorna 409 QUESTION_ALREADY_EXISTS (use PATCH para editar ou reabrir).
+      parameters:
+      - $ref: '#/components/parameters/Csrf'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/QuestionInput'}
+      responses:
+        '201':
+          description: Duvida registrada como PENDENTE
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/PendingItemMutation'}
+        '400': {$ref: '#/components/responses/BadRequest'}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+        '403': {$ref: '#/components/responses/Forbidden'}
+        '404': {$ref: '#/components/responses/NotFound'}
+        '409':
+          description: REVISION_CONFLICT, TRANSACTION_INACTIVE ou QUESTION_ALREADY_EXISTS
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/Error'}
+        '413': {$ref: '#/components/responses/TooLarge'}
+        '415': {$ref: '#/components/responses/UnsupportedMediaType'}
+        '422':
+          description: INVALID_ID ou INVALID_INPUT
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/Error'}
+        '500': {$ref: '#/components/responses/Internal'}
+  /pending-items/{pendingId}:
+    parameters:
+    - name: pendingId
+      in: path
+      required: true
+      schema: {type: string, format: uuid}
+    patch:
+      operationId: conductPendingItem
+      summary: Justificar, resolver, reabrir ou editar pendencia
+      description: JUSTIFY vale para automatica e duvida nao resolvidas. RESOLVE, REOPEN
+        e EDIT valem so para duvida manual; em pendencia automatica retornam 409
+        PENDING_AUTOMATIC. Pendencia RESOLVIDA nao se justifica nem se edita (409
+        PENDING_RESOLVED); reabra antes. Com a revisao esperada atual e sem mudanca efetiva, responde 200 com a revisao
+        atual sem incremento; revisao desatualizada retorna 409 antes. Metodos fora de GET/POST/PATCH retornam 405. Pendencia de lancamento excluido retorna 409
+        TRANSACTION_INACTIVE.
+      parameters:
+      - $ref: '#/components/parameters/Csrf'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/PendingItemAction'}
+      responses:
+        '200':
+          description: Pendencia apos a acao (ou inalterada)
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/PendingItemMutation'}
+        '400': {$ref: '#/components/responses/BadRequest'}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+        '403': {$ref: '#/components/responses/Forbidden'}
+        '404': {$ref: '#/components/responses/NotFound'}
+        '409':
+          description: REVISION_CONFLICT, TRANSACTION_INACTIVE, PENDING_RESOLVED ou
+            PENDING_AUTOMATIC
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/Error'}
+        '413': {$ref: '#/components/responses/TooLarge'}
+        '415': {$ref: '#/components/responses/UnsupportedMediaType'}
+        '422':
+          description: INVALID_ID ou INVALID_INPUT
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/Error'}
+        '500': {$ref: '#/components/responses/Internal'}
+components:
+  securitySchemes:
+    sessionCookie: {type: apiKey, in: cookie, name: mimir_session}
+  parameters:
+    Csrf:
+      name: X-CSRF-Token
+      in: header
+      required: true
+      schema: {type: string, pattern: '^[0-9a-f]{64}$'}
+    Cursor:
+      name: cursor
+      in: query
+      required: false
+      description: Valor opaco devolvido em nextCursor (posicao tipo e id do ultimo item).
+      schema: {type: string, pattern: '^(DOCUMENTO_AUSENTE|CLASSIFICACAO_A_ESCLARECER|REEMBOLSO_PF_PENDENTE|DUVIDA_CADASTRADA)_[0-9a-fA-F-]{36}$'}
+    Limit:
+      name: limit
+      in: query
+      required: false
+      schema: {type: integer, minimum: 1, maximum: 200, default: 100}
+  responses:
+    BadRequest:
+      description: Requisicao malformada ou parametros nao permitidos
+      content: {application/json: {schema: {$ref: '#/components/schemas/Error'}}}
+    Unauthorized:
+      description: Sessao ausente, invalida ou expirada
+      content: {application/json: {schema: {$ref: '#/components/schemas/Error'}}}
+    Forbidden:
+      description: CSRF ou origem invalida
+      content: {application/json: {schema: {$ref: '#/components/schemas/Error'}}}
+    NotFound:
+      description: Objeto ausente ou de outro proprietario
+      content: {application/json: {schema: {$ref: '#/components/schemas/Error'}}}
+    TooLarge:
+      description: Corpo excede limite
+      content: {application/json: {schema: {$ref: '#/components/schemas/Error'}}}
+    UnsupportedMediaType:
+      description: Exigido JSON UTF-8
+      content: {application/json: {schema: {$ref: '#/components/schemas/Error'}}}
+    Unprocessable:
+      description: Conteudo invalido
+      content: {application/json: {schema: {$ref: '#/components/schemas/Error'}}}
+    Internal:
+      description: Erro interno sanitizado
+      content: {application/json: {schema: {$ref: '#/components/schemas/Error'}}}
+  schemas:
+    Error:
+      type: object
+      properties:
+        code: {type: string, minLength: 1}
+        message: {type: string, minLength: 1}
+        requestId: {type: string, minLength: 1}
+      required: [code, message, requestId]
+      additionalProperties: false
+    PeriodMonth:
+      type: string
+      pattern: ^(19[0-9]{2}|[2-9][0-9]{3})-(0[1-9]|1[0-2])$
+    Revision:
+      type: integer
+      minimum: 1
+      maximum: 9007199254740991
+    PendingText:
+      type: string
+      minLength: 3
+      maxLength: 2000
+      description: Texto normalizado (NFC, quebras LF, sem espacos nas pontas); 3 a 2.000 caracteres apos normalizar.
+    QuestionInput:
+      type: object
+      properties:
+        description: {$ref: '#/components/schemas/PendingText'}
+        expectedRevision: {$ref: '#/components/schemas/Revision'}
+      required: [description, expectedRevision]
+      additionalProperties: false
+    PendingItemAction:
+      oneOf:
+      - $ref: '#/components/schemas/JustifyAction'
+      - $ref: '#/components/schemas/ResolveAction'
+      - $ref: '#/components/schemas/ReopenAction'
+      - $ref: '#/components/schemas/EditAction'
+      discriminator:
+        propertyName: action
+    JustifyAction:
+      type: object
+      properties:
+        action: {const: JUSTIFY}
+        justification: {$ref: '#/components/schemas/PendingText'}
+        expectedRevision: {$ref: '#/components/schemas/Revision'}
+      required: [action, justification, expectedRevision]
+      additionalProperties: false
+    ResolveAction:
+      type: object
+      properties:
+        action: {const: RESOLVE}
+        expectedRevision: {$ref: '#/components/schemas/Revision'}
+      required: [action, expectedRevision]
+      additionalProperties: false
+    ReopenAction:
+      type: object
+      properties:
+        action: {const: REOPEN}
+        expectedRevision: {$ref: '#/components/schemas/Revision'}
+      required: [action, expectedRevision]
+      additionalProperties: false
+    EditAction:
+      type: object
+      properties:
+        action: {const: EDIT}
+        description: {$ref: '#/components/schemas/PendingText'}
+        expectedRevision: {$ref: '#/components/schemas/Revision'}
+      required: [action, description, expectedRevision]
+      additionalProperties: false
+    PendingItem:
+      type: object
+      properties:
+        pendingId: {type: string, format: uuid}
+        transactionId: {type: string, format: uuid}
+        pendingType: {type: string, enum: [DOCUMENTO_AUSENTE, CLASSIFICACAO_A_ESCLARECER, REEMBOLSO_PF_PENDENTE, DUVIDA_CADASTRADA]}
+        status: {type: string, enum: [PENDENTE, JUSTIFICADA, RESOLVIDA]}
+        description: {type: string, minLength: 1, maxLength: 2000}
+        justification: {type: string, maxLength: 2000}
+      required: [pendingId, transactionId, pendingType, status, description, justification]
+      additionalProperties: false
+    PendingItemMutation:
+      type: object
+      properties:
+        pendingItem: {$ref: '#/components/schemas/PendingItem'}
+        revision: {$ref: '#/components/schemas/Revision'}
+      required: [pendingItem, revision]
+      additionalProperties: false
+    PendingItemPage:
+      type: object
+      properties:
+        items:
+          type: array
+          maxItems: 200
+          items: {$ref: '#/components/schemas/PendingItem'}
+        nextCursor:
+          type: [string, 'null']
+          pattern: '^(DOCUMENTO_AUSENTE|CLASSIFICACAO_A_ESCLARECER|REEMBOLSO_PF_PENDENTE|DUVIDA_CADASTRADA)_[0-9a-fA-F-]{36}$'
+        revision: {$ref: '#/components/schemas/Revision'}
+      required: [items, nextCursor, revision]
+      additionalProperties: false

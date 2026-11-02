@@ -20,7 +20,7 @@ Ator deriva da sessão; nenhuma escolha de espaço pelo cliente. READ COMMITTED,
 
 Resposta 201 contém somente documentId, transactionId, sha256, sizeBytes e revision contratados. SHA-256 comprova integridade dos bytes, não assinatura nem validade contábil. Documento tem UUID novo por upload, mesmo se hash igual; repetição com revisão antiga é recusada sem novo documento. Repetir intencionalmente com revisão atual é um novo comando. Sem idempotência adicional presumida.
 
-Conteúdo/metadados ficam em PostgreSQL bytea imutável: runtime só SELECT/INSERT em documents, sem UPDATE/DELETE/TRUNCATE. FKs compostas por espaço impedem vínculo cruzado. Não apagar bytes ao manipular vínculos em futuros incrementos. Migração 005 concede apenas UPDATE(status,justification,updated_at) em pending_items; tipo, descrição e identidade continuam protegidos.
+Conteúdo/metadados ficam em PostgreSQL bytea imutável: runtime só SELECT/INSERT em documents, sem UPDATE/DELETE/TRUNCATE. FKs compostas por espaço impedem vínculo cruzado. Não apagar bytes ao manipular vínculos em futuros incrementos. Migração 005 concede apenas UPDATE(status,justification,updated_at) em pending_items; tipo, descrição e identidade continuam protegidos. A migração 009 (I13) acrescenta UPDATE(description), restrito pelo trigger a DUVIDA_CADASTRADA.
 
 ## Reconciliação documental
 

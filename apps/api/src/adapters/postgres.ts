@@ -31,7 +31,7 @@ export class PostgresPersistence implements PersistencePort {
       const result = await this.pool.query<{ ready: boolean }>(
         `SELECT current_user = $1 AND EXISTS
          (SELECT 1 FROM mimir.schema_migrations WHERE version = $2) AS ready`,
-        ['mimir_runtime', '008_reimbursement_links.sql']);
+        ['mimir_runtime', '009_pending_description.sql']);
       return result.rows[0]?.ready === true;
     } catch { return false; }
   }

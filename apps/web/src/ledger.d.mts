@@ -24,12 +24,13 @@ export function nextMonthAction(input: {
   accounts: readonly { id: string }[];
   preview: { revision: number; transactions: readonly { transactionId: string }[]; pendingItems: readonly { transactionId: string; pendingType: string; status: string }[] } | null;
   deliveries: readonly { versionNumber: number; status: string; capturedRevision: number }[];
-}): { kind: 'loading' | 'accounts' | 'transactions' | 'review' | 'capture' | 'delivery' } | { kind: 'document' | 'reimbursement'; transactionId: string };
+}): { kind: 'loading' | 'accounts' | 'transactions' | 'review' | 'capture' | 'delivery' } | { kind: 'document' | 'reimbursement' | 'question'; transactionId: string };
 export function reimbursementStatusLabel(status: string): string;
 export function roleInPeriodLabel(role: string): string;
 export function compatibleInflows<T extends { occurredOn: string }>(inflows: readonly T[], outflowDate: string): T[];
 export function generateIdempotencyKey(): string;
 export function buildVerifierCommand(periodMonth: string, versionNumber: number): string;
+export function describePendingError(status: number, payload: unknown): { code: string; message: string; requestId: string | null };
 export function describeApiError(
   status: number,
   payload: unknown
@@ -50,3 +51,7 @@ export function buildTransactionPatch(
   draft: TransactionEditableFields
 ): Partial<TransactionEditableFields> | null;
 export function lockedFieldsForLinked(isLinked: boolean): (keyof TransactionEditableFields)[];
+export type PendingAction = 'JUSTIFY' | 'RESOLVE' | 'REOPEN' | 'EDIT';
+export function validatePendingText(text: unknown): { value: string; error: string | null };
+export function allowedPendingActions(item: { pendingType: string; status: string } | null): PendingAction[];
+export function hasQuestion(pendingItems: readonly { transactionId: string; pendingType: string }[], transactionId: string): boolean;

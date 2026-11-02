@@ -123,7 +123,9 @@ export function nextMonthAction({ loaded, accounts, preview, deliveries }) {
     (item) => item.status === 'PENDENTE' && item.pendingType === 'REEMBOLSO_PF_PENDENTE'
   );
   if (pendingReimbursement) return { kind: 'reimbursement', transactionId: pendingReimbursement.transactionId };
-  if (preview.pendingItems.some((item) => item.status === 'PENDENTE')) return { kind: 'review' };
+  const firstOpen = preview.pendingItems.find((item) => item.status === 'PENDENTE');
+  if (firstOpen?.pendingType === 'DUVIDA_CADASTRADA') return { kind: 'question', transactionId: firstOpen.transactionId };
+  if (firstOpen) return { kind: 'review' };
   const latest = deliveries.reduce((current, item) => !current || item.versionNumber > current.versionNumber ? item : current, null);
   if (!latest) return { kind: 'capture' };
   if (latest.status === 'EM_FILA' || latest.status === 'EM_PROCESSAMENTO') return { kind: 'delivery' };
@@ -184,6 +186,43 @@ export function describeApiError(status, payload) {
   const requestId =
     payload && typeof payload === 'object' && typeof payload.requestId === 'string' ? payload.requestId : null;
   return { code, message, requestId };
+}
+
+export function describePendingError(status, payload) {
+  const described = describeApiError(status, payload);
+  return Object.hasOwn(PENDING_ERROR_MESSAGES, described.code) ? { ...described, message: PENDING_ERROR_MESSAGES[described.code] } : described;
+}
+
+const PENDING_ERROR_MESSAGES = {
+  REVISION_CONFLICT: 'O caderno mudou desde que você abriu este painel. Confira a visão atualizada e repita a ação.',
+  TRANSACTION_INACTIVE: 'Este lançamento foi excluído e não aceita mais alterações de pendência.',
+  PENDING_RESOLVED: 'Esta pendência já está resolvida. Reabra a dúvida antes de justificar ou editar.',
+  PENDING_AUTOMATIC: 'Pendências automáticas não podem ser resolvidas, reabertas ou editadas. Elimine a causa para que elas se resolvam.',
+  QUESTION_ALREADY_EXISTS: 'Este lançamento já tem uma dúvida registrada. Edite ou reabra a dúvida existente.',
+};
+
+const PENDING_TEXT_ERROR = 'Informe um texto de 3 a 2.000 caracteres.';
+
+export function validatePendingText(text) {
+  const value = typeof text === 'string' ? text.trim() : '';
+  const valid = value.length >= 3 && value.length <= 2000;
+  return { value, error: valid ? null : PENDING_TEXT_ERROR };
+}
+
+export function allowedPendingActions(item) {
+  if (!item || !['PENDENTE', 'JUSTIFICADA', 'RESOLVIDA'].includes(item.status)) return [];
+  const actions = [];
+  const open = item.status !== 'RESOLVIDA';
+  if (open) actions.push('JUSTIFY');
+  if (item.pendingType === 'DUVIDA_CADASTRADA') {
+    if (open) actions.push('EDIT', 'RESOLVE');
+    if (item.status !== 'PENDENTE') actions.push('REOPEN');
+  }
+  return actions;
+}
+
+export function hasQuestion(pendingItems, transactionId) {
+  return pendingItems.some((item) => item.transactionId === transactionId && item.pendingType === 'DUVIDA_CADASTRADA');
 }
 
 const PATCH_FIELDS = ['accountId', 'occurredOn', 'direction', 'amountCents', 'description', 'category', 'classification', 'isPfBusinessExpense', 'explanation'];
