@@ -117,7 +117,8 @@ test('I11 packaging: reimbursement link and context reach HTML/manifest, stay ou
     const sheet=entries.get('movimentacoes.csv').toString('utf8');
     assert.equal(sheet.split('\r\n').length,3,'CSV keeps only the principal movement');assert.ok(!sheet.includes(outflow.transactionId));assert.ok(!sheet.includes(inflow.transactionId));
     const html=entries.get('resumo.html').toString('utf8');
-    assert.ok(html.includes(`<td>${link.reimbursementLinkId}</td>`));assert.ok(html.includes(`<td>${inflow.transactionId}</td>`));assert.ok(html.includes('DESPESA_ORIGEM_NO_PERIODO'));
+    assert.ok(html.includes(`<td>#${link.reimbursementLinkId.slice(0,8)}</td>`));assert.ok(html.includes('<td>06/11/2026 · Entrada do reembolso · R$ 100,00</td>'));
+    assert.ok(html.includes('<td>Despesa de origem no mês</td>'));assert.ok(!html.includes('DESPESA_ORIGEM_NO_PERIODO'));
     const manifest=JSON.parse(built.manifest.toString('utf8'));
     assert.deepEqual(manifest.files.find(f=>f.documentId===d2.documentId).inclusionReasons,['CONTEXTO_REEMBOLSO']);
     assert.deepEqual(manifest.files.find(f=>f.documentId===d1.documentId).inclusionReasons,['VINCULO_DIRETO_PERIODO']);

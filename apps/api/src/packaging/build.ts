@@ -5,6 +5,7 @@ import { join } from 'node:path';
 import type { CapturedPayload } from '../ports/deliveries.js';
 import { attachmentPath, renderCsv } from './csv.js';
 import { renderSummaryHtml } from './html.js';
+import { documentInclusionReasons } from './inclusion.js';
 import { PackagingError, ZipFileWriter } from './zip.js';
 
 export const MANIFEST_LIMIT_BYTES = 8 * 1024 * 1024;
@@ -20,11 +21,10 @@ interface ManifestFile {
 export interface BuiltPackage { zipPath: string; zipSize: number; zipHash: string; manifest: Buffer; manifestHash: string }
 
 function files(payload: CapturedPayload, html: Buffer, csv: Buffer): ManifestFile[] {
-  const direct = new Set(payload.transactions.flatMap(t => t.documentIds));
-  const context = new Set(payload.contextTransactions.flatMap(t => t.documentIds));
+  const inclusionReasons = documentInclusionReasons(payload);
   const attachments = payload.documents.map((document): ManifestFile => ({ path: attachmentPath(document), role: 'ANEXO_DOCUMENTO',
     documentId: document.documentId, mimeType: document.mimeType, sizeBytes: document.sizeBytes, sha256: document.sha256,
-    inclusionReasons: [...(direct.has(document.documentId) ? ['VINCULO_DIRETO_PERIODO'] : []), ...(context.has(document.documentId) ? ['CONTEXTO_REEMBOLSO'] : [])] }));
+    inclusionReasons: inclusionReasons(document.documentId) }));
   const generated: ManifestFile[] = [
     { path: 'movimentacoes.csv', role: 'PLANILHA_CSV', documentId: null, mimeType: 'text/csv; charset=utf-8', sizeBytes: csv.length, sha256: sha256(csv), inclusionReasons: ['ARTEFATO_GERADO'] },
     { path: 'resumo.html', role: 'RESUMO_HTML', documentId: null, mimeType: 'text/html; charset=utf-8', sizeBytes: html.length, sha256: sha256(html), inclusionReasons: ['ARTEFATO_GERADO'] },
