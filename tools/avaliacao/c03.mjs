@@ -24,7 +24,8 @@ try {
     return { pf, pj, main, noDoc, pfExpense, outflow, doc, pending };
   }
   const objA = await seed(A, a1), objB = await seed(B, b);
-  const capture = ok(await a1.request('POST', '/deliveries', { periodMonth: MONTH, expectedRevision: await rev(A), rectificationReason: '' }, { 'Idempotency-Key': `c03-${Date.now()}-capture` }), 202);
+  const captureKey = `c03-${Date.now()}-capture`;
+  const capture = ok(await a1.request('POST', '/deliveries', { periodMonth: MONTH, expectedRevision: await rev(A), rectificationReason: '' }, { 'Idempotency-Key': captureKey }), 202);
   let ready = false;
   for (let i = 0; i < 100 && !ready; i++) { ready = (await a1.request('GET', `/operations/${capture.id}`)).json?.status === 'PRONTA'; if (!ready) await sleep(200); }
   if (!ready) fail('entrega de A não ficou PRONTA');
@@ -40,6 +41,10 @@ try {
   }
   const leaks = r => { const text = r.raw.toString('utf8'); return Object.values(objA).filter(v => typeof v === 'string' && text.includes(v)); };
   const replace = (c, txId, replaced, revision) => c.request('POST', `/transactions/${txId}/document-replacements`, form({ replacedDocumentId: replaced, expectedRevision: revision }, pdf('novo')));
+  const link = (c, txId, documentId, revision) => c.request('POST', `/transactions/${txId}/document-links`, { documentId, expectedRevision: revision });
+  const deliver = (c, revision, key = `c03-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`) =>
+    c.request('POST', '/deliveries', { periodMonth: MONTH, expectedRevision: revision, rectificationReason: 'Nova versão C03' }, { 'Idempotency-Key': key });
+  const notOperationOfA = r => r.json?.id !== objA.operation && r.json?.snapshotId !== objA.snapshot;
   const ra = async () => rev(A), rb = async () => rev(B);
 
   const ops = [
@@ -53,10 +58,10 @@ try {
         classification: 'DESPESA', isPfBusinessExpense: false, explanation: '', expectedRevision: await rb() }), expect: 404 }), positive: 200, last: true },
     { op: 'POST /transactions/{id}/documents', call: async c => c.request('POST', `/transactions/${objA.main}/documents`, form({ expectedRevision: await ra() }, pdf('upload'))),
       n2: async () => b.request('POST', `/transactions/${objA.main}/documents`, form({ expectedRevision: await ra() }, pdf('upload'))),
-      n3: async () => ({ r: await b.request('POST', `/transactions/${objB.main}/document-links`, { documentId: objA.doc, expectedRevision: await rb() }), expect: 404 }), positive: 201 },
+      n3: async () => ({ r: await replace(b, objB.main, objA.doc, await rb()), expect: 404 }), positive: 201 },
     { op: 'GET /documents/{id}/content', call: c => c.request('GET', `/documents/${objA.doc}/content`), n3: async () => ({ r: await b.request('GET', `/documents?periodMonth=${MONTH}`), expect: 200 }), positive: 200, reader: true },
-    { op: 'POST /transactions/{id}/document-replacements', call: async c => replace(c, objA.main, objA.doc, await ra()),
-      n2: async () => replace(b, objA.main, objA.doc, await ra()), n3: async () => ({ r: await replace(b, objB.main, objA.doc, await rb()), expect: 404 }), positive: 201 },
+    { op: 'POST /transactions/{id}/document-links', call: async c => link(c, objA.pfExpense, objA.doc, await ra()),
+      n2: async () => link(b, objA.pfExpense, objA.doc, await ra()), n3: async () => ({ r: await link(b, objB.main, objA.doc, await rb()), expect: 404 }), positive: 201 },
     { op: 'PATCH /pending-items/{id}', call: async c => c.request('PATCH', `/pending-items/${objA.pending}`, { action: 'JUSTIFY', justification: 'Justificativa C03', expectedRevision: await ra() }),
       n2: async () => b.request('PATCH', `/pending-items/${objA.pending}`, { action: 'JUSTIFY', justification: 'Justificativa C03', expectedRevision: await ra() }),
       n3: async () => ({ r: await b.request('GET', `/pending-items?periodMonth=${MONTH}`), expect: 200 }), positive: 200 },
@@ -68,9 +73,9 @@ try {
     { op: 'POST /reimbursements', call: async c => c.request('POST', '/reimbursements', { pfExpenseTransactionId: objA.pfExpense, pjReimbursementTransactionId: objA.outflow, pfInflowTransactionId: null, notes: '', expectedRevision: await ra() }),
       n2: async () => b.request('POST', '/reimbursements', { pfExpenseTransactionId: objA.pfExpense, pjReimbursementTransactionId: objA.outflow, pfInflowTransactionId: null, notes: '', expectedRevision: await rb() }),
       n3: async () => ({ r: await b.request('POST', '/reimbursements', { pfExpenseTransactionId: objB.pfExpense, pjReimbursementTransactionId: objA.outflow, pfInflowTransactionId: null, notes: '', expectedRevision: await rb() }), expect: 404 }), positive: 201 },
-    { op: 'DELETE /transactions/{id}/document-links/{documentId}', call: async c => c.request('DELETE', `/transactions/${objA.main}/document-links/${objA.doc}`, { expectedRevision: await ra() }),
-      n2: async () => b.request('DELETE', `/transactions/${objA.main}/document-links/${objA.doc}`, { expectedRevision: await ra() }),
-      n3: async () => ({ r: await b.request('DELETE', `/transactions/${objB.main}/document-links/${objA.doc}`, { expectedRevision: await rb() }), expect: 404 }), positive: 200, afterReplace: true },
+    { op: 'POST /deliveries', call: async c => deliver(c, await ra()),
+      n2Case: async () => ({ r: await deliver(b, await rb()), expect: 202, onlyA: true, check: notOperationOfA }),
+      n3: async () => ({ r: await deliver(b, await rb(), captureKey), expect: 202, onlyA: true, check: notOperationOfA }), positive: 202 },
   ];
 
   const cases = [];
@@ -80,23 +85,18 @@ try {
     try { out = await run(); } catch (e) { error = String(e.message ?? e); }
     const after = [await state(A), await state(B)];
     const r = out?.r, expected = out?.expect ?? null, leaked = r ? leaks(r) : [];
-    const unchanged = before[0] === after[0] && before[1] === after[1];
-    const pass = !error && r.status === expected && unchanged && leaked.length === 0;
+    const unchanged = before[0] === after[0] && (out?.onlyA || before[1] === after[1]);
+    const pass = !error && r.status === expected && unchanged && leaked.length === 0 && (!out?.check || out.check(r));
     cases.push({ op: op.op, kind: 'negativo', condition, expected, observed: r?.status ?? null, code: r?.json?.code ?? null, unchanged, leakedIds: leaked.length, pass, error });
     if (!pass) console.log(`CASE-FAIL ${condition} ${op.op}: esperado ${expected}, observado ${r?.status} unchanged=${unchanged} leak=${leaked.length} ${error ?? ''}`);
   }
   for (const op of ops) {
     await negative(op, 'N1-sem-sessao', async () => ({ r: await op.call(anon), expect: 401 }));
     await negative(op, 'N1-sessao-revogada', async () => ({ r: await op.call(revokedClient), expect: 401 }));
-    await negative(op, 'N2-outro-proprietario', async () => ({ r: await (op.n2 ? op.n2() : op.call(b)), expect: op.n2Expect ?? 404 }));
+    await negative(op, 'N2-outro-proprietario', op.n2Case ?? (async () => ({ r: await (op.n2 ? op.n2() : op.call(b)), expect: op.n2Expect ?? 404 })));
     await negative(op, 'N3-vinculo-entre-espacos', op.n3);
   }
-  const ordered = [...ops.filter(op => !op.last && !op.afterReplace), ...ops.filter(op => op.afterReplace), ...ops.filter(op => op.last)];
-  for (const op of ordered) {
-    if (op.afterReplace) {
-      const current = (await admin.query('SELECT document_id::text d FROM mimir.transaction_documents WHERE transaction_id=$1 LIMIT 1', [objA.main])).rows[0].d;
-      objA.doc = current;
-    }
+  for (const op of [...ops.filter(op => !op.last), ...ops.filter(op => op.last)]) {
     const who = op.reader ? a2 : a1;
     const r = await op.call(who);
     const pass = r.status === op.positive;
@@ -119,7 +119,8 @@ Veredito: **${result.verdict === 'ATENDE' ? 'atende' : 'não atende'}** ao crit�
 - API: ponto de entrada real (\`apps/api/dist/index.js\`, executor embutido) em processo filho com apenas as variáveis de runtime; identidades A (sessões A1, A2) e B independentes; CSRF válido em todas as mutações.
 - Negativos: ${result.summary.negativesBlocked}/${result.summary.negatives} bloqueados (N1 sem sessão, N2 outro proprietário, N3 vínculo entre espaços); adicional N1 com sessão revogada: ${result.summary.extraRevokedSessionBlocked}/${result.summary.extraRevokedSession}.
 - Positivos: ${result.summary.positivesAccepted}/${result.summary.positives} aceitos.
-- "Inalterado" compara revisão, contagens e conteúdo dos dois espaços antes e depois de cada caso negativo.
+- "Inalterado" compara revisão, contagens e conteúdo dos dois espaços antes e depois de cada caso negativo. Em \`POST /deliveries\` o comando não referencia objeto de A: N2 é B capturando o próprio mês e N3 é B reutilizando a \`Idempotency-Key\` da captura de A; em ambos só A precisa ficar inalterado, e a resposta não pode ser a operação de A.
+- Matriz da §4 do protocolo (repetição após a errata E4); a execução anterior, com duas operações trocadas, está em \`resultados/historico/\`.
 
 | Operação | Condição | Esperado | Observado | Inalterado | Resultado |
 | --- | --- | --- | --- | --- | --- |
