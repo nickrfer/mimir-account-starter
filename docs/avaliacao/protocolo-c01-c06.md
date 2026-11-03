@@ -130,3 +130,11 @@ A §7 cita `delivery_packages.published_at`; a coluna real do instante de public
 ### E3 — C05, combinação Windows — 02/11/2026, durante a coleta, por decisão do usuário
 
 A instalação do LibreOffice no Windows (winget, autorizada) ficou aguardando elevação de privilégio e foi cancelada por decisão do usuário. A combinação Windows/Firefox/LibreOffice é executada **sem o LibreOffice**: no Windows, o resumo é aberto no Firefox offline; a leitura do `movimentacoes.csv` por planilha é conferida apenas no LibreOffice do lado Linux (contêiner Debian 12, LibreOffice 7.4.7.2, sem rede). Desvio declarado; o C05 é reportado como atendido apenas com esse desvio. Nenhuma biblioteca substitui o LibreOffice na conferência.
+
+### E4 — C03, matriz executada — 02/11/2026, após a coleta, na revisão do harness
+
+A matriz executada difere da §4 em duas operações: no lugar de (6) `POST /transactions/{id}/document-links` e (8) `POST /deliveries`, o harness testou `POST /transactions/{id}/document-replacements` e `DELETE /transactions/{id}/document-links/{documentId}`. `POST /transactions/{id}/document-links` aparece apenas como caso N3 de outra operação, e **`POST /deliveries` não foi testado sem sessão nem por outro proprietário**. Além disso, 5 dos 36 casos só reprovariam por vazamento de identificador, não por status: o N2 da prévia (B lê a própria prévia, 200) e o N3 de quatro leituras (B lista os próprios lançamentos, documentos, pendências e entregas, 200). O resultado 36/36 vale para a matriz executada, listada em `resultados/C03.md`. O cenário não foi repetido.
+
+### E5 — C02, âncora do tempo de recuperação — 02/11/2026, após a coleta, na revisão do harness
+
+A §3 mede a partir de `/ready` 200. O harness ancorou em `clock_timestamp()` lido pelo driver depois que o orquestrador concluiu `docker compose up --wait db` (healthcheck a cada 2 s) e sinalizou por arquivo (varredura a cada 100 ms). O banco aceita conexões antes disso, então a âncora fica atrasada em relação à restauração real e os tempos estão subestimados em até cerca de 2 s (**INFERIDO** pelo intervalo do healthcheck). No P1 o executor publicou antes da âncora (de −1,2 a −0,5 s). O veredito não muda: maior tempo 28,3 s, meta 120 s.
