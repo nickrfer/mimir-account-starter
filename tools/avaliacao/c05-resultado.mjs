@@ -17,8 +17,9 @@ const reference = await json('referencia-c05.json');
 const comparison = await json('comparacao-c05.json');
 const linuxVersions = (await text('linux/versoes.txt')).split(/\r?\n/).filter(Boolean);
 
-const userAll = decision === '20/20';
-const divergent = userAll ? [] : decision.replace(/^divergentes:/, '').split(',').map(Number);
+const parsed = /^(?:20\/20|divergentes:((?:[1-9]|1\d|20)(?:,(?:[1-9]|1\d|20))*))$/.exec(decision);
+if (!parsed) { console.error(`decisão inválida: ${decision} (use 20/20 ou divergentes:n,n com n de 1 a 20)`); process.exit(2); }
+const divergent = parsed[1] ? parsed[1].split(',').map(Number) : [];
 const automaticDivergent = comparison.records.filter(r => !r.htmlOk || !r.loOk).map(r => r.n);
 const records = comparison.records.map(r => ({
   n: r.n,

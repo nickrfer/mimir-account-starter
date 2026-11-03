@@ -8,7 +8,7 @@ Versão avaliada: tag `poc-v1.0.0` (commit `14605c6`, I01–I16). Protocolo fixa
 | --- | --- | --- | --- |
 | RNF-01 | [C01](C01.md) | atende | 100/100 intercalações corretas; 0 misturas de revisão; entrega v1 preservada em 100/100 |
 | RNF-02 | [C02](C02.md) | atende | 30/30 recuperadas; 0 FALHA terminal; maior tempo após restauração 28,3 s (meta 120 s) |
-| RNF-03 | [C03](C03.md) | atende | 36/36 negativos bloqueados, 12/12 com sessão revogada, 12/12 controles positivos aceitos |
+| RNF-03 | [C03](C03.md) | atende (matriz executada, E4) | 36/36 negativos bloqueados, 12/12 com sessão revogada, 12/12 controles positivos aceitos |
 | RNF-04 | [C04](C04.md) | atende | 20/20 mutações detectadas (5 por classe); controle íntegro aceito; limitação sem referência confiável documentada |
 | RNF-05 | [C05](C05.md) | atende com desvio declarado | 20/20 registros iguais ao oráculo no Chromium (180 campos) e no LibreOffice (160 campos); Firefox no Windows conferido pelo usuário; Windows/LibreOffice não executado (E3) |
 | RNF-06 | [C06](C06.md) | atende | 30/30 prontas; p95 2.057 ms (meta 10 s); pico de RSS 321,5 MiB (meta 512 MiB) |
@@ -20,6 +20,8 @@ Veredito de C05 e a conferência dos 20 registros: **VERIFICADO** para as compar
 - **E1 (C01)**: a verificação derivada "uma das duas operações vence, a outra recebe 409" contradizia o desenho (a captura não incrementa a revisão). Verificações corrigidas por ordem atendida, critério de `requirements.md` inalterado, C01 repetido por inteiro. Primeira execução mantida em `historico/`.
 - **E2 (C06)**: a coluna de medição é `delivery_packages.created_at`, não `published_at`. A medição é a mesma, definida antes da coleta.
 - **E3 (C05)**: o LibreOffice não foi instalado no Windows (elevação de privilégio, instalação cancelada pelo autor). A planilha foi conferida só no LibreOffice 7.4.7.2 do contêiner Debian 12; no Windows, só o Firefox 159.0 offline. Nenhuma biblioteca substitui o LibreOffice.
+- **E4 (C03)**: duas operações da matriz do protocolo foram trocadas na execução; `POST /deliveries` não foi testado sem sessão nem por outro proprietário, e 5 dos 36 casos só reprovariam por vazamento. Registrada após a coleta; cenário não repetido.
+- **E5 (C02)**: a âncora do tempo foi o fim do `up --wait db`, não `/ready` 200; os tempos estão subestimados em até ~2 s. Registrada após a coleta; veredito inalterado.
 - **C02**: o executor roda fora do processo da API e a falha é injetada por decorador do harness (desvio previsto no protocolo §3).
 - **C06**: Docker Desktop/WSL2 com API e banco em 2 núcleos e 4 GiB somados, não host dedicado.
 
@@ -42,7 +44,7 @@ Protocolo §8: C06 em Docker limitado sobre WSL2, não host dedicado; C02 roda o
 
 Observações da coleta:
 
-- **C02, P1**: o tempo é medido a partir de uma âncora de cerca de 1 s antes da restauração; os valores negativos do P1 (de -1,2 a -0,5 s) decorrem dessa âncora (**INFERIDO**).
+- **C02, âncora (E5)**: a âncora é lida depois do healthcheck do banco (intervalo de 2 s) e de um sinal por arquivo, portanto **depois** da restauração real. Os valores negativos do P1 (de −1,2 a −0,5 s) são publicações anteriores à âncora, e todos os tempos estão subestimados em até ~2 s (**INFERIDO**).
 - **C06, tempos agrupados**: o executor consulta a fila a cada 2 s, então as amostras se concentram perto de 2 s (mediana 2.007 ms). O p95 mede principalmente o intervalo de polling, não o custo de montagem.
 - **C06, limite de 100 MiB**: a geração terminou PRONTA em 1.962 ms, mas o pico de RSS foi 658 MiB, acima dos 512 MiB da meta de 25 MiB. O protocolo não fixa meta para esse teste, então não altera o veredito; sugere que a montagem do ZIP mantém o conteúdo em memória (**INFERIDO**; não investigado).
 - **C05**: sem a combinação Windows/LibreOffice (E3) a portabilidade da planilha no Windows é **INFERIDA** a partir do Linux.
