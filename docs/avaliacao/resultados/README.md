@@ -23,6 +23,7 @@ Veredito de C05 e a conferência dos 20 registros: **VERIFICADO** para as compar
 - **E4 (C03)**: duas operações da matriz do protocolo foram trocadas na execução; `POST /deliveries` não foi testado sem sessão nem por outro proprietário, e 5 dos 36 casos só reprovariam por vazamento. Registrada após a coleta; o C03 foi repetido com a matriz da §4 (36/36, 12/12, 12/12), e a execução anterior está em `historico/`.
 - **E5 (C02)**: a âncora do tempo foi o fim do `up --wait db`, não `/ready` 200; os tempos estão subestimados em até ~2 s. Registrada após a coleta; veredito inalterado.
 - **C02**: o executor roda fora do processo da API e a falha é injetada por decorador do harness (desvio previsto no protocolo §3).
+- **C02, carga**: o relatório previa a carga nominal do C06; cada execução usou uma conta, três movimentações e três anexos. O tempo medido é dominado por lease e polling, não pela montagem, mas a carga difere do plano.
 - **C06**: Docker Desktop/WSL2 com API e banco em 2 núcleos e 4 GiB somados, não host dedicado.
 
 ## Execuções inválidas
