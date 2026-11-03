@@ -1,7 +1,7 @@
 {
   "scenario": "C03",
-  "project": "mimir-eval-c03-132fb6ad",
-  "commit": "d12005c7a407948a5a055fe25ccd881b28b1eb34",
+  "project": "mimir-eval-c03-f8fbd1dc",
+  "commit": "9b6f435d7883d0ee186af0d381462ebb7fd2f9c8",
   "tag": "poc-v1.0.0",
   "productEqualToTag": true,
   "docker": "29.9.2",
@@ -13,10 +13,10 @@
     "arch": "x64",
     "cpus": 16,
     "cpuModel": "13th Gen Intel(R) Core(TM) i7-13620H",
-    "memoryBytes": 10426671104
+    "memoryBytes": 10426679296
   },
-  "startedAt": "2026-11-02T20:18:50.083Z",
-  "finishedAt": "2026-11-02T20:18:52.882Z",
+  "startedAt": "2026-11-03T01:48:59.889Z",
+  "finishedAt": "2026-11-03T01:49:02.690Z",
   "criterion": "Bloquear os 36 casos negativos (12 operações × 3 condições) com 12 controles positivos aceitos, sem vazamento nem mutação (RNF-03).",
   "summary": {
     "negatives": 36,
@@ -270,7 +270,7 @@
       "error": null
     },
     {
-      "op": "POST /transactions/{id}/document-replacements",
+      "op": "POST /transactions/{id}/document-links",
       "kind": "negativo",
       "condition": "N1-sem-sessao",
       "expected": 401,
@@ -282,7 +282,7 @@
       "error": null
     },
     {
-      "op": "POST /transactions/{id}/document-replacements",
+      "op": "POST /transactions/{id}/document-links",
       "kind": "negativo",
       "condition": "N1-sessao-revogada",
       "expected": 401,
@@ -294,7 +294,7 @@
       "error": null
     },
     {
-      "op": "POST /transactions/{id}/document-replacements",
+      "op": "POST /transactions/{id}/document-links",
       "kind": "negativo",
       "condition": "N2-outro-proprietario",
       "expected": 404,
@@ -306,7 +306,7 @@
       "error": null
     },
     {
-      "op": "POST /transactions/{id}/document-replacements",
+      "op": "POST /transactions/{id}/document-links",
       "kind": "negativo",
       "condition": "N3-vinculo-entre-espacos",
       "expected": 404,
@@ -558,7 +558,7 @@
       "error": null
     },
     {
-      "op": "DELETE /transactions/{id}/document-links/{documentId}",
+      "op": "POST /deliveries",
       "kind": "negativo",
       "condition": "N1-sem-sessao",
       "expected": 401,
@@ -570,7 +570,7 @@
       "error": null
     },
     {
-      "op": "DELETE /transactions/{id}/document-links/{documentId}",
+      "op": "POST /deliveries",
       "kind": "negativo",
       "condition": "N1-sessao-revogada",
       "expected": 401,
@@ -582,24 +582,24 @@
       "error": null
     },
     {
-      "op": "DELETE /transactions/{id}/document-links/{documentId}",
+      "op": "POST /deliveries",
       "kind": "negativo",
       "condition": "N2-outro-proprietario",
-      "expected": 404,
-      "observed": 404,
-      "code": "NOT_FOUND",
+      "expected": 202,
+      "observed": 202,
+      "code": null,
       "unchanged": true,
       "leakedIds": 0,
       "pass": true,
       "error": null
     },
     {
-      "op": "DELETE /transactions/{id}/document-links/{documentId}",
+      "op": "POST /deliveries",
       "kind": "negativo",
       "condition": "N3-vinculo-entre-espacos",
-      "expected": 404,
-      "observed": 404,
-      "code": "NOT_FOUND",
+      "expected": 202,
+      "observed": 202,
+      "code": null,
       "unchanged": true,
       "leakedIds": 0,
       "pass": true,
@@ -642,7 +642,7 @@
       "pass": true
     },
     {
-      "op": "POST /transactions/{id}/document-replacements",
+      "op": "POST /transactions/{id}/document-links",
       "kind": "positivo",
       "condition": "A1",
       "expected": 201,
@@ -696,11 +696,11 @@
       "pass": true
     },
     {
-      "op": "DELETE /transactions/{id}/document-links/{documentId}",
+      "op": "POST /deliveries",
       "kind": "positivo",
       "condition": "A1",
-      "expected": 200,
-      "observed": 200,
+      "expected": 202,
+      "observed": 202,
       "code": null,
       "pass": true
     },
