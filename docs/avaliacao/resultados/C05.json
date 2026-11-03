@@ -1,0 +1,242 @@
+{
+  "scenario": "C05",
+  "project": "mimir-eval-c05-e39240d2",
+  "commit": "3794fec1f3fc5c0b173fe2e9bf2e8fda4c89c98b",
+  "tag": "poc-v1.0.0",
+  "productEqualToTag": true,
+  "docker": "29.9.2",
+  "node": "v24.22.1",
+  "postgres": "18.6 (Debian 18.6-1.pgdg12+2)",
+  "container": {
+    "platform": "linux",
+    "release": "6.18.33.2-microsoft-standard-WSL2",
+    "arch": "x64",
+    "cpus": 16,
+    "cpuModel": "13th Gen Intel(R) Core(TM) i7-13620H",
+    "memoryBytes": 10426671104
+  },
+  "startedAt": "2026-11-02T21:06:18.368Z",
+  "criterion": "Conferir 20 registros nas combinações Windows/Firefox/LibreOffice e Linux/Chromium/LibreOffice, preservando datas, acentos, valores e relações, offline e sem login (RNF-05).",
+  "package": {
+    "snapshotId": "7dfb26e2-161a-4ddd-a610-ed14fec11abf",
+    "manifestSha256": "defd29c45bf97efec67d15c19831de9a1bb313d85b2458b72915db60f6f66c98",
+    "zipSha256": "b03cbb2db9b2c5875d1ccf1ddac10bb0733e81c65cd446fa6cba49fa87956eed",
+    "records": 20
+  },
+  "combinations": [
+    {
+      "id": "linux-chromium-libreoffice",
+      "executed": true,
+      "os": "Debian GNU/Linux 12 (bookworm)",
+      "browser": "Chromium 156.0.8078.73 built on Debian GNU/Linux 12 (bookworm)",
+      "spreadsheet": "LibreOffice 7.4.7.2 40(Build:2)",
+      "network": "contêiner sem rede",
+      "htmlChecks": 180,
+      "csvChecks": 160,
+      "chromiumEqual": 20,
+      "libreofficeEqual": 20
+    },
+    {
+      "id": "windows-firefox",
+      "executed": true,
+      "browser": "Firefox 159.0",
+      "network": "perfil descartável com proxy em porta morta; resumo aberto por file://",
+      "evidence": "windows/firefox-resumo.png"
+    },
+    {
+      "id": "windows-libreoffice",
+      "executed": false,
+      "reason": "Errata E3: instalação via winget cancelada por decisão do usuário; nenhuma biblioteca substitui o LibreOffice."
+    }
+  ],
+  "evidence": {
+    "directory": ".local/mimir-eval-c05-e39240d2/out",
+    "files": {
+      "linux/chromium-resumo.png": "901b3978f9fc5a8141b8f5b31c1f0b86b119290ef0743be3a9c29095583b17c0",
+      "linux/chromium-dom.html": "ad39c9485bdbd6cea58b9085c621ae9ad7074c791aa722e8c4794c763659b792",
+      "linux/exportado/movimentacoes.csv": "d864e9ac24a299c56b393400aec45a750388b04300677d99c91fd4d5604f35fc",
+      "windows/firefox-resumo.png": "35fd877edd0e951e560af1d3814b9c68f8c7b6a95391de294f389aab78a382b7",
+      "comparacao-c05.json": "1b5fc2a081cafc0634ed77130da1707cac076f56ef3c744e9779bb1638fbe2b0",
+      "referencia-c05.json": "d2e9548ddd0c08d310c6e4effab6b71880e0274c418dc1d335fb01870e8f8440",
+      "conferencia-c05.html": "685b2c27558c046098f207713bae85ce4cece13b306527a1d5dc8763a69fa5db"
+    }
+  },
+  "userCheck": {
+    "decision": "20/20",
+    "divergent": [],
+    "automaticDivergent": []
+  },
+  "summary": {
+    "records": 20,
+    "chromiumEqual": 20,
+    "libreofficeEqual": 20,
+    "userConfirmed": 20
+  },
+  "deviations": [
+    "Errata E3: combinação Windows/LibreOffice não executada; conferência da planilha só no LibreOffice do lado Linux.",
+    "Conferência final feita pelo próprio autor (protocolo §8)."
+  ],
+  "verdict": "ATENDE COM DESVIO DECLARADO",
+  "records": [
+    {
+      "n": 1,
+      "ref": "#56748d4d",
+      "description": "Receita mínima de 1 centavo",
+      "chromium": true,
+      "libreoffice": true,
+      "user": true
+    },
+    {
+      "n": 2,
+      "ref": "#f5a308c9",
+      "description": "Consultoria — São Paulo/SP",
+      "chromium": true,
+      "libreoffice": true,
+      "user": true
+    },
+    {
+      "n": 3,
+      "ref": "#1c31ae64",
+      "description": "Valor máximo permitido",
+      "chromium": true,
+      "libreoffice": true,
+      "user": true
+    },
+    {
+      "n": 4,
+      "ref": "#9186f59c",
+      "description": "Café & pão de queijo",
+      "chromium": true,
+      "libreoffice": true,
+      "user": true
+    },
+    {
+      "n": 5,
+      "ref": "#c831a087",
+      "description": "Ação \"promocional\", com vírgula",
+      "chromium": true,
+      "libreoffice": true,
+      "user": true
+    },
+    {
+      "n": 6,
+      "ref": "#19bdd0a0",
+      "description": "<b>Tag HTML</b> não interpretada",
+      "chromium": true,
+      "libreoffice": true,
+      "user": true
+    },
+    {
+      "n": 7,
+      "ref": "#5f8eb07d",
+      "description": "=SOMA(A1:A2) fórmula neutralizada",
+      "chromium": true,
+      "libreoffice": true,
+      "user": true
+    },
+    {
+      "n": 8,
+      "ref": "#74cc548e",
+      "description": "Ônibus intermunicipal ÁÉÍÓÚ àèìòù ãõ ç",
+      "chromium": true,
+      "libreoffice": true,
+      "user": true
+    },
+    {
+      "n": 9,
+      "ref": "#acb627f7",
+      "description": "Débito não identificado",
+      "chromium": true,
+      "libreoffice": true,
+      "user": true
+    },
+    {
+      "n": 10,
+      "ref": "#cb0ca5e9",
+      "description": "Hospedagem paga no cartão do sócio",
+      "chromium": true,
+      "libreoffice": true,
+      "user": true
+    },
+    {
+      "n": 11,
+      "ref": "#12630da3",
+      "description": "Receita pessoal fora do total da empresa",
+      "chromium": true,
+      "libreoffice": true,
+      "user": true
+    },
+    {
+      "n": 12,
+      "ref": "#d21f8456",
+      "description": "Transferência entre contas PJ",
+      "chromium": true,
+      "libreoffice": true,
+      "user": true
+    },
+    {
+      "n": 13,
+      "ref": "#c784d87a",
+      "description": "Tarifa de manutenção",
+      "chromium": true,
+      "libreoffice": true,
+      "user": true
+    },
+    {
+      "n": 14,
+      "ref": "#cf1d80ef",
+      "description": "Equipamento — notebook",
+      "chromium": true,
+      "libreoffice": true,
+      "user": true
+    },
+    {
+      "n": 15,
+      "ref": "#e0741cbd",
+      "description": "Receita com quebra\nde linha na descrição",
+      "chromium": true,
+      "libreoffice": true,
+      "user": true
+    },
+    {
+      "n": 16,
+      "ref": "#98806f22",
+      "description": "Licença de software (anual)",
+      "chromium": true,
+      "libreoffice": true,
+      "user": true
+    },
+    {
+      "n": 17,
+      "ref": "#5bcd9bdc",
+      "description": "Aspas simples 'teste' e apóstrofo d'água",
+      "chromium": true,
+      "libreoffice": true,
+      "user": true
+    },
+    {
+      "n": 18,
+      "ref": "#cd39e5cd",
+      "description": "Imposto sobre serviço — ISS",
+      "chromium": true,
+      "libreoffice": true,
+      "user": true
+    },
+    {
+      "n": 19,
+      "ref": "#d5f9b872",
+      "description": "Entrada de transferência PJ",
+      "chromium": true,
+      "libreoffice": true,
+      "user": true
+    },
+    {
+      "n": 20,
+      "ref": "#cc4cf584",
+      "description": "Último dia do mês",
+      "chromium": true,
+      "libreoffice": true,
+      "user": true
+    }
+  ]
+}

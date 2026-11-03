@@ -83,3 +83,67 @@ test('I08 packaging: integrity, abort, empty and size limits fail without leavin
     const names=await readdir(dir);assert.ok(names.includes('small.zip'));
   }finally{await rm(dir,{recursive:true,force:true});}
 });
+
+test('I11 packaging: reimbursement link and context reach HTML/manifest, stay out of CSV and pass the offline verifier',async()=>{
+  const {buildPackage}=await import('../../apps/api/dist/packaging/build.js');
+  const {verifyDeliveryPackage}=await import('../../packages/verifier/dist/verifier.js');
+  const {mkdir,writeFile}=await import('node:fs/promises');
+  const pfDoc=Buffer.from('%PDF-1.7\nSynthetic I11 origem\n%%EOF\n'),pjDoc=Buffer.from('%PDF-1.7\nSynthetic I11 PJ\n%%EOF\n');
+  const d1=document(pfDoc),d2=document(pjDoc,'transferencia.pdf'),pfAccount=randomUUID(),pjAccount=randomUUID();
+  const base={accountName:'Conta PF',accountType:'PF',accountId:pfAccount,sourceType:'MANUAL',sourceCode:'MANUAL',explanationOriginal:'',isPfBusinessExpense:false};
+  const expense={...base,transactionId:randomUUID(),occurredOn:'2026-10-10',direction:'SAIDA',amountCents:10000,descriptionOriginal:'Despesa da empresa',categoryOriginal:'INFRAESTRUTURA',
+    classification:'DESPESA',isPfBusinessExpense:true,documentIds:[d1.documentId],reimbursementStatus:'REEMBOLSADA_OUTRO_MES'};
+  expense.externalId=expense.transactionId;
+  const outflow={...base,accountName:'Conta PJ',accountType:'PJ',accountId:pjAccount,transactionId:randomUUID(),occurredOn:'2026-11-05',direction:'SAIDA',amountCents:10000,
+    descriptionOriginal:'Reembolso PF',categoryOriginal:'TRANSFERENCIAS',classification:'TRANSFERENCIA',documentIds:[d2.documentId],reimbursementStatus:'LIQUIDACAO_DE_REEMBOLSO'};
+  outflow.externalId=outflow.transactionId;
+  const inflow={...base,transactionId:randomUUID(),occurredOn:'2026-11-06',direction:'ENTRADA',amountCents:10000,descriptionOriginal:'Entrada do reembolso',
+    categoryOriginal:'TRANSFERENCIAS',classification:'TRANSFERENCIA',documentIds:[],reimbursementStatus:'LIQUIDACAO_DE_REEMBOLSO'};
+  inflow.externalId=inflow.transactionId;
+  const link={reimbursementLinkId:randomUUID(),pfExpenseTransactionId:expense.transactionId,pjReimbursementTransactionId:outflow.transactionId,
+    pfInflowTransactionId:inflow.transactionId,amountCents:10000,pfOriginDocumentIds:[d1.documentId],roleInPeriod:'DESPESA_ORIGEM_NO_PERIODO'};
+  const p={schemaVersion:'mimir.snapshot.v1',workspace:{workspaceId:randomUUID(),companyName:'Empresa Sintetica',currency:'BRL'},
+    delivery:{snapshotId:randomUUID(),operationId:randomUUID(),periodMonth:'2026-10',versionNumber:2,capturedRevision:9,rectificationReason:'Inclui reembolso',capturedAt:'2026-11-07T12:00:00.000Z'},
+    summary:{cashFlowByAccount:[{accountId:pfAccount,accountName:'Conta PF',accountType:'PF',inflowCents:0,outflowCents:10000,netCents:-10000}],businessRevenueTotalCents:0,
+      businessExpenseTotalCents:10000,reimbursementsSettledInPeriodCents:0,pendingCount:0,justifiedCount:0,categoryTotals:[{category:'INFRAESTRUTURA',inflowCents:0,outflowCents:10000,netCents:-10000}]},
+    transactions:[expense],contextTransactions:[outflow,inflow],reimbursementLinks:[link],
+    pendingItems:[{pendingId:randomUUID(),transactionId:expense.transactionId,pendingType:'REEMBOLSO_PF_PENDENTE',status:'RESOLVIDA',description:'Despesa empresarial PF sem vínculo de reembolso.',justification:''}],
+    documents:[d1,d2].sort((a,b)=>a.documentId<b.documentId?-1:1),period:{periodMonth:'2026-10',notes:''}};
+  const dir=await mkdtemp(join(tmpdir(),'mimir-i11-'));
+  try{
+    const built=await buildPackage(p,async id=>id===d1.documentId?pfDoc:pjDoc,join(dir,'work'),new AbortController().signal,new Date('2026-11-07T12:00:01Z'));
+    const entries=readZip(await readFile(built.zipPath)),extracted=join(dir,'pkg');
+    for(const [name,data] of entries){await mkdir(join(extracted,name,'..'),{recursive:true});await writeFile(join(extracted,name),data);}
+    const sheet=entries.get('movimentacoes.csv').toString('utf8');
+    assert.equal(sheet.split('\r\n').length,3,'CSV keeps only the principal movement');assert.ok(!sheet.includes(outflow.transactionId));assert.ok(!sheet.includes(inflow.transactionId));
+    const html=entries.get('resumo.html').toString('utf8');
+    assert.ok(html.includes(`<td>#${link.reimbursementLinkId.slice(0,8)}</td>`));assert.ok(html.includes('<td>06/11/2026 · Entrada do reembolso · R$ 100,00</td>'));
+    assert.ok(html.includes('<td>Despesa de origem no mês</td>'));assert.ok(!html.includes('DESPESA_ORIGEM_NO_PERIODO'));
+    const manifest=JSON.parse(built.manifest.toString('utf8'));
+    assert.deepEqual(manifest.files.find(f=>f.documentId===d2.documentId).inclusionReasons,['CONTEXTO_REEMBOLSO']);
+    assert.deepEqual(manifest.files.find(f=>f.documentId===d1.documentId).inclusionReasons,['VINCULO_DIRETO_PERIODO']);
+    await writeFile(join(dir,'ref.manifesto.json'),built.manifest);
+    const verified=await verifyDeliveryPackage(extracted,join(dir,'ref.manifesto.json'));
+    assert.equal(verified.ok,true,verified.message);assert.equal(verified.counts.contextTransactions,2);
+  }finally{await rm(dir,{recursive:true,force:true});}
+});
+
+test('I16 verifier: text limits count Unicode characters like the API, database and JSON Schema',async()=>{
+  const {buildPackage}=await import('../../apps/api/dist/packaging/build.js');
+  const {verifyDeliveryPackage}=await import('../../packages/verifier/dist/verifier.js');
+  const {mkdir,writeFile}=await import('node:fs/promises');
+  const bytes=Buffer.from('%PDF-1.7\nSynthetic I16\n%%EOF\n'),doc=document(bytes);
+  const p=payload([doc],{sourceType:'CSV',sourceCode:'\u{1F3E6}'.repeat(80),externalId:'\u{1F600}'.repeat(200),descriptionOriginal:'\u{1F4B8}'.repeat(500),
+    categoryOriginal:'\u{1F4C1}'.repeat(100),reimbursementStatus:'PENDENTE_REEMBOLSO'});
+  p.summary.categoryTotals=[{category:p.transactions[0].categoryOriginal,inflowCents:0,outflowCents:1250,netCents:-1250}];
+  p.summary.cashFlowByAccount[0].accountName=p.transactions[0].accountName;
+  const dir=await mkdtemp(join(tmpdir(),'mimir-i16-'));
+  try{
+    const built=await buildPackage(p,async()=>bytes,join(dir,'work'),new AbortController().signal,new Date('2026-11-06T00:00:00Z'));
+    const extracted=join(dir,'pkg');
+    for(const [name,data] of readZip(await readFile(built.zipPath))){await mkdir(join(extracted,name,'..'),{recursive:true});await writeFile(join(extracted,name),data);}
+    await writeFile(join(dir,'ref.json'),built.manifest);
+    const verified=await verifyDeliveryPackage(extracted,join(dir,'ref.json'));
+    assert.equal(verified.ok,true,verified.message);
+  }finally{await rm(dir,{recursive:true,force:true});}
+});

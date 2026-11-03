@@ -136,8 +136,9 @@ test('I05 immutable upload: PostgreSQL and HTTP real',async t=>{
   await t.test('runtime can only reconcile pending columns and cannot mutate document metadata or bytes',async()=>{
     const runtime=new pg.Client({connectionString:url.toString()});await runtime.connect();
     try{
-      for(const sql of ["UPDATE mimir.documents SET original_name='changed'",'DELETE FROM mimir.documents','TRUNCATE mimir.documents',"UPDATE mimir.pending_items SET type='DUVIDA_CADASTRADA'","UPDATE mimir.pending_items SET description='changed'",'DELETE FROM mimir.pending_items','TRUNCATE mimir.pending_items'])await assert.rejects(runtime.query(sql),e=>e.code==='42501');
-      const grants=(await admin.query("SELECT column_name FROM information_schema.column_privileges WHERE grantee='mimir_runtime' AND table_schema='mimir' AND table_name='pending_items' AND privilege_type='UPDATE' ORDER BY column_name")).rows.map(r=>r.column_name);assert.deepEqual(grants,['justification','status','updated_at']);
+      for(const sql of ["UPDATE mimir.documents SET original_name='changed'",'DELETE FROM mimir.documents','TRUNCATE mimir.documents',"UPDATE mimir.pending_items SET type='DUVIDA_CADASTRADA'",'DELETE FROM mimir.pending_items','TRUNCATE mimir.pending_items'])await assert.rejects(runtime.query(sql),e=>e.code==='42501');
+      const grants=(await admin.query("SELECT column_name FROM information_schema.column_privileges WHERE grantee='mimir_runtime' AND table_schema='mimir' AND table_name='pending_items' AND privilege_type='UPDATE' ORDER BY column_name")).rows.map(r=>r.column_name);assert.deepEqual(grants,['description','justification','status','updated_at']);
+      await assert.rejects(runtime.query("UPDATE mimir.pending_items SET description='changed' WHERE type='DOCUMENTO_AUSENTE'"),e=>e.code==='23514');
     }finally{await runtime.end();}
   });
   await t.test('forged actor and exhausted revision are refused without bytes; logs contain only safe metadata',async()=>{

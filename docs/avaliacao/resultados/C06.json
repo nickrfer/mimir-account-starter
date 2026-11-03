@@ -1,0 +1,266 @@
+{
+  "scenario": "C06",
+  "project": "mimir-eval-c06-d5d3ce43",
+  "commit": "3794fec1f3fc5c0b173fe2e9bf2e8fda4c89c98b",
+  "tag": "poc-v1.0.0",
+  "productEqualToTag": true,
+  "docker": "29.9.2",
+  "node": "v24.22.1",
+  "postgres": "18.6 (Debian 18.6-1.pgdg12+2)",
+  "container": {
+    "platform": "linux",
+    "release": "6.18.33.2-microsoft-standard-WSL2",
+    "arch": "x64",
+    "cpus": 16,
+    "cpuModel": "13th Gen Intel(R) Core(TM) i7-13620H",
+    "memoryBytes": 10426671104
+  },
+  "startedAt": "2026-11-02T22:18:26.595Z",
+  "finishedAt": "2026-11-02T22:19:59.501Z",
+  "criterion": "Geração de 200 movimentações com 50 anexos (25 MiB): p95 ≤ 10 s (29ª de 30 amostras) após 3 aquecimentos; pico de RSS da API ≤ 512 MiB na geração e no download sequencial (RNF-06).",
+  "limits": {
+    "api": "cpuset 0,1; 2 GiB",
+    "db": "cpuset 0,1; 2 GiB",
+    "harness": "cpuset 2,3",
+    "note": "API e banco compartilham 2 núcleos e somam 4 GiB; Docker Desktop/WSL2, não host dedicado (desvio declarado)."
+  },
+  "hostRestarts": [
+    "api reiniciada 2026-11-02T19:18:37.2887204-03:00",
+    "api reiniciada 2026-11-02T19:19:54.6610112-03:00"
+  ],
+  "summary": {
+    "samples": 30,
+    "ready": 30,
+    "p95Ms": 2057,
+    "minMs": 758,
+    "medianMs": 2007,
+    "maxMs": 2078,
+    "seriesPeakRssBytes": 337100800,
+    "seriesPeakRssMiB": 321.5,
+    "zipBytes": 26266584,
+    "substitutions": 2
+  },
+  "limitTest": {
+    "documents": 200,
+    "documentBytes": 104857600,
+    "status": "PRONTA",
+    "ms": 1962,
+    "zipBytes": 104959376,
+    "downloadedBytes": 104959376,
+    "peakRssBytes": 689946624,
+    "peakRssMiB": 658
+  },
+  "substitutions": [
+    {
+      "project": "mimir-eval-c06-82341a9d",
+      "reason": "Defeito do harness: a leitura de VmHWM selecionava processos cuja linha de comando continha 'index.js', e o próprio sh -c da medição atendia ao filtro; o pico registrado (0,7 MiB) era do shell, não da API. Tempos dessa execução (p95 2.081 ms, 30/30 prontas; limite 100 MiB PRONTA em 1.796 ms) não são usados. Filtro corrigido para processos com comm=node e cmdline contendo dist/index.js."
+    },
+    {
+      "reason": "Defeito do harness: o filtro corrigido exigia comm=node, mas o processo da API se renomeia para MainThread; nenhum processo foi encontrado e o orquestrador abortou ao ler o pico (teste de captura com -notmatch). Execução interrompida sem resultado. Filtro final: linha de comando iniciada por 'node' contendo 'dist/index.js', validado na API em execução (pid 7).",
+      "project": "mimir-eval-c06-56ccf9ba"
+    }
+  ],
+  "verdict": "ATENDE",
+  "warmups": [
+    {
+      "status": "PRONTA",
+      "ms": 631,
+      "zipSize": 26266526,
+      "downloadedBytes": 26266526
+    },
+    {
+      "status": "PRONTA",
+      "ms": 1960,
+      "zipSize": 26266583,
+      "downloadedBytes": 26266583
+    },
+    {
+      "status": "PRONTA",
+      "ms": 2006,
+      "zipSize": 26266588,
+      "downloadedBytes": 26266588
+    }
+  ],
+  "samples": [
+    {
+      "status": "PRONTA",
+      "ms": 758,
+      "zipSize": 26266584,
+      "downloadedBytes": 26266584
+    },
+    {
+      "status": "PRONTA",
+      "ms": 2020,
+      "zipSize": 26266591,
+      "downloadedBytes": 26266591
+    },
+    {
+      "status": "PRONTA",
+      "ms": 2009,
+      "zipSize": 26266589,
+      "downloadedBytes": 26266589
+    },
+    {
+      "status": "PRONTA",
+      "ms": 1972,
+      "zipSize": 26266590,
+      "downloadedBytes": 26266590
+    },
+    {
+      "status": "PRONTA",
+      "ms": 2018,
+      "zipSize": 26266590,
+      "downloadedBytes": 26266590
+    },
+    {
+      "status": "PRONTA",
+      "ms": 1999,
+      "zipSize": 26266592,
+      "downloadedBytes": 26266592
+    },
+    {
+      "status": "PRONTA",
+      "ms": 2035,
+      "zipSize": 26266592,
+      "downloadedBytes": 26266592
+    },
+    {
+      "status": "PRONTA",
+      "ms": 1998,
+      "zipSize": 26266585,
+      "downloadedBytes": 26266585
+    },
+    {
+      "status": "PRONTA",
+      "ms": 1986,
+      "zipSize": 26266588,
+      "downloadedBytes": 26266588
+    },
+    {
+      "status": "PRONTA",
+      "ms": 2007,
+      "zipSize": 26266586,
+      "downloadedBytes": 26266586
+    },
+    {
+      "status": "PRONTA",
+      "ms": 1995,
+      "zipSize": 26266591,
+      "downloadedBytes": 26266591
+    },
+    {
+      "status": "PRONTA",
+      "ms": 2011,
+      "zipSize": 26266587,
+      "downloadedBytes": 26266587
+    },
+    {
+      "status": "PRONTA",
+      "ms": 2047,
+      "zipSize": 26266590,
+      "downloadedBytes": 26266590
+    },
+    {
+      "status": "PRONTA",
+      "ms": 1975,
+      "zipSize": 26266590,
+      "downloadedBytes": 26266590
+    },
+    {
+      "status": "PRONTA",
+      "ms": 2024,
+      "zipSize": 26266590,
+      "downloadedBytes": 26266590
+    },
+    {
+      "status": "PRONTA",
+      "ms": 2057,
+      "zipSize": 26266589,
+      "downloadedBytes": 26266589
+    },
+    {
+      "status": "PRONTA",
+      "ms": 2003,
+      "zipSize": 26266590,
+      "downloadedBytes": 26266590
+    },
+    {
+      "status": "PRONTA",
+      "ms": 1962,
+      "zipSize": 26266588,
+      "downloadedBytes": 26266588
+    },
+    {
+      "status": "PRONTA",
+      "ms": 2022,
+      "zipSize": 26266590,
+      "downloadedBytes": 26266590
+    },
+    {
+      "status": "PRONTA",
+      "ms": 1957,
+      "zipSize": 26266592,
+      "downloadedBytes": 26266592
+    },
+    {
+      "status": "PRONTA",
+      "ms": 2078,
+      "zipSize": 26266593,
+      "downloadedBytes": 26266593
+    },
+    {
+      "status": "PRONTA",
+      "ms": 1991,
+      "zipSize": 26266590,
+      "downloadedBytes": 26266590
+    },
+    {
+      "status": "PRONTA",
+      "ms": 2026,
+      "zipSize": 26266593,
+      "downloadedBytes": 26266593
+    },
+    {
+      "status": "PRONTA",
+      "ms": 1967,
+      "zipSize": 26266593,
+      "downloadedBytes": 26266593
+    },
+    {
+      "status": "PRONTA",
+      "ms": 2043,
+      "zipSize": 26266592,
+      "downloadedBytes": 26266592
+    },
+    {
+      "status": "PRONTA",
+      "ms": 2046,
+      "zipSize": 26266592,
+      "downloadedBytes": 26266592
+    },
+    {
+      "status": "PRONTA",
+      "ms": 2006,
+      "zipSize": 26266592,
+      "downloadedBytes": 26266592
+    },
+    {
+      "status": "PRONTA",
+      "ms": 2009,
+      "zipSize": 26266589,
+      "downloadedBytes": 26266589
+    },
+    {
+      "status": "PRONTA",
+      "ms": 1980,
+      "zipSize": 26266589,
+      "downloadedBytes": 26266589
+    },
+    {
+      "status": "PRONTA",
+      "ms": 1994,
+      "zipSize": 26266592,
+      "downloadedBytes": 26266592
+    }
+  ]
+}

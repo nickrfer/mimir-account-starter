@@ -1,0 +1,335 @@
+openapi: 3.1.0
+info:
+  title: Mimir Contabilidade Documentos
+  version: 0.1.0
+  description: Contrato complementar do RF-06 (I15). Acrescenta listagem de documentos do
+    mes, download de conteudo, vinculo de documento existente, desvinculo e substituicao,
+    sem alterar openapi-jornada-inicial.yaml 0.5.0 (upload), openapi-lancamentos.yaml,
+    openapi-reembolsos.yaml nem openapi-pendencias.yaml. Mutacoes exigem cookie de sessao,
+    X-CSRF-Token e Origin permitido, bloqueiam o espaco, comparam expectedRevision e
+    incrementam revision exatamente uma vez. Ordem de validacao - forma (400/413/415/422),
+    existencia no espaco (404), revisao (409 REVISION_CONFLICT), lancamento excluido (409
+    TRANSACTION_INACTIVE) e estado do vinculo (409). Documentos sao imutaveis - nenhum
+    comando apaga ou altera documento existente; desvincular e substituir preservam o
+    arquivo anterior. Pendencias automaticas sao reconciliadas no mesmo commit. Entregas
+    ja capturadas nao mudam.
+servers:
+- url: http://localhost:3000/api/v1
+  description: Endereco local de desenvolvimento
+security:
+- sessionCookie: []
+paths:
+  /documents:
+    get:
+      operationId: listPeriodDocuments
+      summary: Listar documentos vinculados a lancamentos ativos do mes
+      description: Ordenados por createdAt e documentId. transactionIds traz apenas
+        lancamentos ativos do mes informado. Leitura e revision na mesma visao; nao altera
+        revision.
+      parameters:
+      - name: periodMonth
+        in: query
+        required: true
+        schema: {$ref: '#/components/schemas/PeriodMonth'}
+      responses:
+        '200':
+          description: Documentos do mes
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/DocumentList'}
+        '400':
+          description: INVALID_QUERY (parametro ausente, repetido ou desconhecido)
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/Error'}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+        '403': {$ref: '#/components/responses/Forbidden'}
+        '413':
+          description: DOCUMENT_LIST_LIMIT_EXCEEDED (mais de 1.000 documentos no mes)
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/Error'}
+        '422':
+          description: INVALID_MONTH
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/Error'}
+        '500': {$ref: '#/components/responses/Internal'}
+  /documents/{documentId}/content:
+    parameters:
+    - $ref: '#/components/parameters/DocumentId'
+    get:
+      operationId: downloadDocument
+      summary: Baixar o conteudo de um documento do espaco
+      description: Bytes identicos aos armazenados. Sempre application/octet-stream com
+        Content-Disposition attachment, X-Content-Type-Options nosniff e CSP sandbox; o nome
+        do arquivo e gerado pelo servidor (documento-<documentId>.<pdf|png|jpg>), nunca o
+        nome original. Permitido para qualquer documento do espaco, com ou sem vinculo.
+      responses:
+        '200':
+          description: Conteudo do documento
+          headers:
+            Content-Disposition:
+              schema: {type: string, pattern: '^attachment; filename="documento-[0-9a-f-]{36}\.(pdf|png|jpg)"$'}
+            X-Content-SHA256:
+              schema: {type: string, pattern: '^[0-9a-f]{64}$'}
+            X-Content-Type-Options:
+              schema: {const: nosniff}
+            Cross-Origin-Resource-Policy:
+              schema: {const: same-origin}
+          content:
+            application/octet-stream:
+              schema: {type: string, contentMediaType: application/octet-stream}
+        '400': {$ref: '#/components/responses/BadRequest'}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+        '403': {$ref: '#/components/responses/Forbidden'}
+        '404': {$ref: '#/components/responses/NotFound'}
+        '422':
+          description: INVALID_ID
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/Error'}
+        '500': {$ref: '#/components/responses/Internal'}
+  /transactions/{transactionId}/document-links:
+    parameters:
+    - $ref: '#/components/parameters/TransactionId'
+    post:
+      operationId: linkExistingDocument
+      summary: Vincular documento existente do espaco a lancamento ativo
+      description: Resolve DOCUMENTO_AUSENTE do lancamento; o vinculo e mudanca material e
+        reabre outras pendencias automaticas JUSTIFICADA. Duvida manual nao muda.
+      parameters:
+      - $ref: '#/components/parameters/Csrf'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/LinkInput'}
+      responses:
+        '201':
+          description: Vinculo criado
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/DocumentLinkMutation'}
+        '400': {$ref: '#/components/responses/BadRequest'}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+        '403': {$ref: '#/components/responses/Forbidden'}
+        '404': {$ref: '#/components/responses/NotFound'}
+        '409':
+          description: REVISION_CONFLICT, TRANSACTION_INACTIVE ou DOCUMENT_ALREADY_LINKED
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/Error'}
+        '413': {$ref: '#/components/responses/TooLarge'}
+        '415': {$ref: '#/components/responses/UnsupportedMediaType'}
+        '422': {$ref: '#/components/responses/Unprocessable'}
+        '500': {$ref: '#/components/responses/Internal'}
+  /transactions/{transactionId}/document-links/{documentId}:
+    parameters:
+    - $ref: '#/components/parameters/TransactionId'
+    - $ref: '#/components/parameters/DocumentId'
+    delete:
+      operationId: unlinkDocument
+      summary: Desvincular documento de lancamento ativo sem apagar o documento
+      description: Se o lancamento RECEITA ou DESPESA ficar sem documento, DOCUMENTO_AUSENTE
+        volta a PENDENTE sem justificativa (ou e criada). O desvinculo e mudanca material e
+        reabre outras pendencias automaticas JUSTIFICADA. Vinculo inexistente retorna 404.
+      parameters:
+      - $ref: '#/components/parameters/Csrf'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/RevisionInput'}
+      responses:
+        '200':
+          description: Vinculo removido
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/DocumentLinkMutation'}
+        '400': {$ref: '#/components/responses/BadRequest'}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+        '403': {$ref: '#/components/responses/Forbidden'}
+        '404': {$ref: '#/components/responses/NotFound'}
+        '409':
+          description: REVISION_CONFLICT ou TRANSACTION_INACTIVE
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/Error'}
+        '413': {$ref: '#/components/responses/TooLarge'}
+        '415': {$ref: '#/components/responses/UnsupportedMediaType'}
+        '422': {$ref: '#/components/responses/Unprocessable'}
+        '500': {$ref: '#/components/responses/Internal'}
+  /transactions/{transactionId}/document-replacements:
+    parameters:
+    - $ref: '#/components/parameters/TransactionId'
+    post:
+      operationId: replaceDocument
+      summary: Substituir documento vinculado por novo arquivo
+      description: Cria documento com novo documentId e supersedesDocumentId igual ao
+        substituido, remove somente o vinculo do documento substituido com este lancamento e
+        cria o vinculo do novo, no mesmo commit. O documento substituido e seus outros
+        vinculos permanecem. Mesmas regras de arquivo do upload (PDF, PNG, JPEG, ate 5 MiB,
+        assinatura e MIME conferidos, ate dois envios simultaneos).
+      parameters:
+      - $ref: '#/components/parameters/Csrf'
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema: {$ref: '#/components/schemas/ReplacementInput'}
+      responses:
+        '201':
+          description: Documento substituido
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/DocumentReplacement'}
+        '400': {$ref: '#/components/responses/BadRequest'}
+        '401': {$ref: '#/components/responses/Unauthorized'}
+        '403': {$ref: '#/components/responses/Forbidden'}
+        '404': {$ref: '#/components/responses/NotFound'}
+        '409':
+          description: REVISION_CONFLICT, TRANSACTION_INACTIVE ou DOCUMENT_NOT_LINKED
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/Error'}
+        '413': {$ref: '#/components/responses/TooLarge'}
+        '415':
+          description: Tipo, extensao ou MIME nao permitidos; corpo nao multipart
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/Error'}
+        '422': {$ref: '#/components/responses/Unprocessable'}
+        '429':
+          description: UPLOAD_LIMIT (Retry-After 1)
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/Error'}
+        '500': {$ref: '#/components/responses/Internal'}
+components:
+  securitySchemes:
+    sessionCookie: {type: apiKey, in: cookie, name: mimir_session}
+  parameters:
+    Csrf:
+      name: X-CSRF-Token
+      in: header
+      required: true
+      schema: {type: string, pattern: '^[0-9a-f]{64}$'}
+    TransactionId:
+      name: transactionId
+      in: path
+      required: true
+      schema: {type: string, format: uuid}
+    DocumentId:
+      name: documentId
+      in: path
+      required: true
+      schema: {type: string, format: uuid}
+  responses:
+    BadRequest:
+      description: Requisicao malformada ou parametros nao permitidos
+      content: {application/json: {schema: {$ref: '#/components/schemas/Error'}}}
+    Unauthorized:
+      description: Sessao ausente, invalida ou expirada
+      content: {application/json: {schema: {$ref: '#/components/schemas/Error'}}}
+    Forbidden:
+      description: CSRF ou origem invalida
+      content: {application/json: {schema: {$ref: '#/components/schemas/Error'}}}
+    NotFound:
+      description: Lancamento, documento ou vinculo ausente ou de outro proprietario
+      content: {application/json: {schema: {$ref: '#/components/schemas/Error'}}}
+    TooLarge:
+      description: Corpo excede limite
+      content: {application/json: {schema: {$ref: '#/components/schemas/Error'}}}
+    UnsupportedMediaType:
+      description: Exigido JSON UTF-8
+      content: {application/json: {schema: {$ref: '#/components/schemas/Error'}}}
+    Unprocessable:
+      description: INVALID_ID ou INVALID_INPUT
+      content: {application/json: {schema: {$ref: '#/components/schemas/Error'}}}
+    Internal:
+      description: Erro interno sanitizado
+      content: {application/json: {schema: {$ref: '#/components/schemas/Error'}}}
+  schemas:
+    Error:
+      type: object
+      properties:
+        code: {type: string, minLength: 1}
+        message: {type: string, minLength: 1}
+        requestId: {type: string, minLength: 1}
+      required: [code, message, requestId]
+      additionalProperties: false
+    PeriodMonth:
+      type: string
+      pattern: ^(19[0-9]{2}|[2-9][0-9]{3})-(0[1-9]|1[0-2])$
+    Revision:
+      type: integer
+      minimum: 1
+      maximum: 9007199254740991
+    RevisionInput:
+      type: object
+      properties:
+        expectedRevision: {$ref: '#/components/schemas/Revision'}
+      required: [expectedRevision]
+      additionalProperties: false
+    LinkInput:
+      type: object
+      properties:
+        documentId: {type: string, format: uuid}
+        expectedRevision: {$ref: '#/components/schemas/Revision'}
+      required: [documentId, expectedRevision]
+      additionalProperties: false
+    ReplacementInput:
+      type: object
+      properties:
+        file: {type: string, contentMediaType: application/octet-stream, description: 'PDF, PNG ou JPEG, 1 byte a 5 MiB'}
+        replacedDocumentId: {type: string, format: uuid}
+        expectedRevision: {type: string, pattern: '^[1-9][0-9]{0,15}$'}
+      required: [file, replacedDocumentId, expectedRevision]
+      additionalProperties: false
+    DocumentSummary:
+      type: object
+      properties:
+        documentId: {type: string, format: uuid}
+        originalName: {type: string, minLength: 1, maxLength: 255}
+        mimeType: {type: string, enum: [application/pdf, image/png, image/jpeg]}
+        sizeBytes: {type: integer, minimum: 1, maximum: 5242880}
+        sha256: {type: string, pattern: '^[0-9a-f]{64}$'}
+        createdAt: {type: string, format: date-time}
+        supersedesDocumentId: {type: [string, 'null'], format: uuid}
+        transactionIds:
+          type: array
+          minItems: 1
+          items: {type: string, format: uuid}
+      required: [documentId, originalName, mimeType, sizeBytes, sha256, createdAt, supersedesDocumentId, transactionIds]
+      additionalProperties: false
+    DocumentList:
+      type: object
+      properties:
+        periodMonth: {$ref: '#/components/schemas/PeriodMonth'}
+        documents:
+          type: array
+          maxItems: 1000
+          items: {$ref: '#/components/schemas/DocumentSummary'}
+        revision: {$ref: '#/components/schemas/Revision'}
+      required: [periodMonth, documents, revision]
+      additionalProperties: false
+    DocumentLinkMutation:
+      type: object
+      properties:
+        transactionId: {type: string, format: uuid}
+        documentId: {type: string, format: uuid}
+        revision: {$ref: '#/components/schemas/Revision'}
+      required: [transactionId, documentId, revision]
+      additionalProperties: false
+    DocumentReplacement:
+      type: object
+      properties:
+        documentId: {type: string, format: uuid}
+        replacedDocumentId: {type: string, format: uuid}
+        transactionId: {type: string, format: uuid}
+        sha256: {type: string, pattern: '^[0-9a-f]{64}$'}
+        sizeBytes: {type: integer, minimum: 1, maximum: 5242880}
+        revision: {$ref: '#/components/schemas/Revision'}
+      required: [documentId, replacedDocumentId, transactionId, sha256, sizeBytes, revision]
+      additionalProperties: false

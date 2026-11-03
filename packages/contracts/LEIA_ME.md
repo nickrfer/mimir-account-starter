@@ -6,6 +6,16 @@ A mudança para v2 identifica explicitamente o campo obrigatório novo. O caminh
 
 categoryTotals agrega somente transactions do mês e inclui transferências no fluxo. Normalizar categoria em NFC e trim na entrada, preservar diferenças de caixa, ordenar por bytes UTF-8 e manter grupo com saldo líquido zero. Leia docs/category-totals.md para regras completas e docs/verifier-acceptance.md para os aceites semânticos adicionais.
 
+openapi-reembolsos.yaml (OpenAPI 3.1, info.version 0.1.0) é contrato complementar do RF-07, implementado no I11: criar, listar, consultar candidatos e desfazer vínculos de reembolso. Não altera a OpenAPI da jornada nem o manifesto v2; os campos de vínculo reutilizam os nomes do schema Reimbursement.
+
+openapi-lancamentos.yaml (OpenAPI 3.1, info.version 0.1.0) é contrato complementar do RF-04, implementado no I12: consultar, listar, corrigir e excluir logicamente lançamentos. A criação continua em openapi-jornada-inicial.yaml.
+
 csv-import-v1.schema.json, importacao_exemplo.csv, importacao_normalizada.json e vetores-fingerprint.json foram preservados. vetores-totalizacao.json acrescenta quatro casos de domínio e não representa transações completas de manifesto. A conferência dos tipos não substitui somas, referências, pertença ao mês ou autorização.
 
 Os schemas e o OpenAPI são contratos declarativos, não código da aplicação. O domínio .invalid identifica esquema local, não serviço publicado. O aplicativo e seu verificador CLI continuam pendentes de implementação.
+
+openapi-pendencias.yaml (OpenAPI 3.1, info.version 0.1.0) é contrato complementar do RF-08, implementado no I13: listar pendências do mês, registrar dúvida manual e justificar, resolver, reabrir ou editar pendências. Não altera openapi-jornada-inicial.yaml, openapi-reembolsos.yaml nem openapi-lancamentos.yaml; manifesto v2 e fixtures permanecem com os mesmos bytes.
+
+openapi-documentos.yaml (OpenAPI 3.1, info.version 0.1.0) é contrato complementar do RF-06, implementado no I15: listar documentos do mês, baixar conteúdo, vincular documento existente, desvincular e substituir documento. Não altera openapi-jornada-inicial.yaml (upload), openapi-lancamentos.yaml, openapi-reembolsos.yaml nem openapi-pendencias.yaml; manifesto v2 e fixtures permanecem com os mesmos bytes.
+
+openapi-importacao.yaml (OpenAPI 3.1, info.version 0.1.0) é contrato complementar do RF-03, implementado no I16: prévia e confirmação de importação de CSV no formato de csv-import-v1.schema.json, com fingerprint conforme vetores-fingerprint.json. Não altera os demais contratos, csv-import-v1.schema.json, os vetores, o manifesto v2 nem as fixtures.

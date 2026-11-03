@@ -37,6 +37,10 @@ if($log.Contains('I09 verifier: accepts the 3 synthetic v2 fixtures')){
     $cases+=@{id='QA-I09';title='Verificador CLI independente: fixtures v2, controles semanticos e pacote real';stage='verifier-package';
         proof='Fixtures sinteticas v2 (outubro_v1, novembro_v1, outubro_v2) + ORACULOS_DOS_EXEMPLOS + pacote real publicado pelo executor em PostgreSQL: esperado aceite (codigo 0) dos 3 casos oficiais e do pacote real extraido no container isolado verifier (network_mode: none, read_only: true), erro de uso/autorreferencia (codigo 2), e rejeicao deterministica (codigo 1) para divergencia de bytes do manifesto, schemaVersion v1, violacoes de schema, todos os 18 controles de categoryTotals/summary, 14 controles relacionais, arquivos faltantes/extras/adulterados, symlinks, HTML ativo e adulteracao de CSV, sem vazar descricoes privadas. Resultado observado nesta rodada; detalhes em docs/evidence/I09.md.'}
 }
+if($log.Contains('I10 web: compiled SPA bundle exposes complete first-journey endpoints')){
+    $cases+=@{id='QA-I10';title='Interface web da primeira jornada (SPA React/TS + API)';stage='http-spa-ready';
+        proof='Testes unitarios I10 (conversao deterministica de centavos BRL, regras PF/PJ, navegacao de competencia, chave de idempotencia e comando do verificador) + verificacao do bundle compilado servido pela API em / e /assets/* com CSP default-src self e todos os endpoints da primeira jornada (/session, /accounts, /transactions, /documents, /preview, /deliveries, /operations, /package e /manifest). Resultado observado nesta rodada; detalhes em docs/evidence/I10.md.'}
+}
 $hasStages=$null -ne $summary.PSObject.Properties['completedStages']
 foreach($case in $cases){
     $case.result=if($hasStages -and $summary.completedStages -contains $case.stage){'passou'}elseif($summary.failureStage -eq $case.stage){'falhou'}else{'nao-executado'}
@@ -45,7 +49,8 @@ foreach($case in $cases){
 $screens=@()
 $reviewPath=Join-Path $directory 'screenshots/review.json'
 if(Test-Path -LiteralPath $reviewPath){
-    foreach($entry in @(Get-Content -LiteralPath $reviewPath -Raw | ConvertFrom-Json)){
+    $reviewItems=Get-Content -LiteralPath $reviewPath -Raw | ConvertFrom-Json
+    foreach($entry in @($reviewItems)){
         if($entry.reviewed -ne $true -or $entry.synthetic -ne $true){continue}
         if($entry.file -notmatch '^[a-zA-Z0-9_-]+\.png$' -or !$entry.caption -or !$entry.scenario){throw 'Screenshot sem nome seguro, legenda ou cenario'}
         if(!(Test-Path -LiteralPath (Join-Path $directory "screenshots/$($entry.file)"))){throw 'Screenshot ausente'}
@@ -55,7 +60,7 @@ if(Test-Path -LiteralPath $reviewPath){
         }
     }
 }
-$result=[ordered]@{schemaVersion=1;project=$Project;generatedAt=[DateTime]::UtcNow.ToString('o');source="docs/evidence/docker-$Project.json";dataOrigin='synthetic';passed=[bool]$summary.passed;tests=(Count-Result 'tests');testsPassed=(Count-Result 'pass');testsFailed=(Count-Result 'fail');stepsPassed=$summary.stepsPassed;failureStage=$summary.failureStage;volumeRemoved=$summary.volumeRemoved;scenarios=$cases;screenshots=$screens;limits=@('Interface atual e somente shell; upload financeiro comprovado por HTTP/PostgreSQL.','Screenshots nao solicitados/coletados ficam ausentes; nao equivalem a cenario aprovado.','Logs brutos/configuracao/trace/cookies nao sao incluidos neste relatorio.','QA-01 a QA-05 deste relatorio sao cenarios locais; nao sao os experimentos academicos C01-C06.')}
+$result=[ordered]@{schemaVersion=1;project=$Project;generatedAt=[DateTime]::UtcNow.ToString('o');source="docs/evidence/docker-$Project.json";dataOrigin='synthetic';passed=[bool]$summary.passed;tests=(Count-Result 'tests');testsPassed=(Count-Result 'pass');testsFailed=(Count-Result 'fail');stepsPassed=$summary.stepsPassed;failureStage=$summary.failureStage;volumeRemoved=$summary.volumeRemoved;scenarios=$cases;screenshots=$screens;limits=@('Interface web I10 integra a primeira jornada funcional; provas transacionais de banco/API e revisao visual de screenshots sao registradas separadamente.','Screenshots nao solicitados/coletados ficam ausentes; nao equivalem a cenario aprovado.','Logs brutos/configuracao/trace/cookies nao sao incluidos neste relatorio.','QA-01 a QA-05 deste relatorio sao cenarios locais; nao sao os experimentos academicos C01-C06.')}
 [IO.File]::WriteAllText((Join-Path $directory 'qa.json'),($result|ConvertTo-Json -Depth 7),[Text.UTF8Encoding]::new($false))
 function Escape-Html([object]$v){[Net.WebUtility]::HtmlEncode([string]$v)}
 $labels=@{passou='Passou';falhou='Falhou';'nao-executado'='Não executado'}

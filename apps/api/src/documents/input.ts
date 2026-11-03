@@ -1,9 +1,36 @@
 import {createHash} from 'node:crypto';
-import {text} from '../auth/input.js';
+import {exactObject,text} from '../auth/input.js';
 import {ApiError} from '../http/error.js';
+import {previewMonth} from '../preview/http.js';
 import type {UploadDocument} from '../ports/documents.js';
 export const MAX_DOCUMENT_BYTES=5242880;
+const UUID=/^[a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12}$/i;
 const invalid=()=>new ApiError(422,'INVALID_INPUT','Documento ou campos inválidos');
+const positiveRevision=(value:unknown):number=>{
+  if(typeof value!=='number'||!Number.isSafeInteger(value)||value<1)throw invalid();
+  return value;
+};
+export function documentIdInput(value:string):string {
+  if(!UUID.test(value))throw new ApiError(422,'INVALID_ID','Identificador inválido');
+  return value.toLowerCase();
+}
+export function uuidField(value:unknown):string {
+  if(typeof value!=='string'||!UUID.test(value))throw invalid();
+  return value.toLowerCase();
+}
+export function linkInput(value:unknown):{documentId:string;expectedRevision:number} {
+  const input=exactObject(value,['documentId','expectedRevision']);
+  return{documentId:uuidField(input.documentId),expectedRevision:positiveRevision(input.expectedRevision)};
+}
+export function revisionBodyInput(value:unknown):number {
+  return positiveRevision(exactObject(value,['expectedRevision']).expectedRevision);
+}
+export function documentListQuery(query:URLSearchParams):string {
+  for(const key of query.keys())if(key!=='periodMonth'||query.getAll(key).length!==1)throw new ApiError(400,'INVALID_QUERY','Parâmetros inválidos');
+  const month=query.get('periodMonth');
+  if(month===null)throw new ApiError(400,'INVALID_QUERY','Parâmetros inválidos');
+  return previewMonth(month);
+}
 export function revisionInput(value:unknown):number {
   if(typeof value!=='string'||!/^[1-9]\d{0,15}$/.test(value)||!Number.isSafeInteger(Number(value)))throw invalid();
   return Number(value);

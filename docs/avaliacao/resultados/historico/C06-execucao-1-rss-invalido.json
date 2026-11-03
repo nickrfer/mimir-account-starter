@@ -1,0 +1,257 @@
+{
+  "scenario": "C06",
+  "project": "mimir-eval-c06-82341a9d",
+  "commit": "3794fec1f3fc5c0b173fe2e9bf2e8fda4c89c98b",
+  "tag": "poc-v1.0.0",
+  "productEqualToTag": true,
+  "docker": "29.9.2",
+  "node": "v24.22.1",
+  "postgres": "18.6 (Debian 18.6-1.pgdg12+2)",
+  "container": {
+    "platform": "linux",
+    "release": "6.18.33.2-microsoft-standard-WSL2",
+    "arch": "x64",
+    "cpus": 16,
+    "cpuModel": "13th Gen Intel(R) Core(TM) i7-13620H",
+    "memoryBytes": 10426671104
+  },
+  "startedAt": "2026-11-02T22:13:14.138Z",
+  "finishedAt": "2026-11-02T22:14:45.830Z",
+  "criterion": "Geração de 200 movimentações com 50 anexos (25 MiB): p95 ≤ 10 s (29ª de 30 amostras) após 3 aquecimentos; pico de RSS da API ≤ 512 MiB na geração e no download sequencial (RNF-06).",
+  "limits": {
+    "api": "cpuset 0,1; 2 GiB",
+    "db": "cpuset 0,1; 2 GiB",
+    "harness": "cpuset 2,3",
+    "note": "API e banco compartilham 2 núcleos e somam 4 GiB; Docker Desktop/WSL2, não host dedicado (desvio declarado)."
+  },
+  "hostRestarts": [
+    "api reiniciada 2026-11-02T19:13:24.3816527-03:00",
+    "api reiniciada 2026-11-02T19:14:41.8317013-03:00"
+  ],
+  "summary": {
+    "samples": 30,
+    "ready": 30,
+    "p95Ms": 2081,
+    "minMs": 882,
+    "medianMs": 2024,
+    "maxMs": 2083,
+    "seriesPeakRssBytes": 700416,
+    "seriesPeakRssMiB": 0.7,
+    "zipBytes": 26266555,
+    "substitutions": 0
+  },
+  "limitTest": {
+    "documents": 200,
+    "documentBytes": 104857600,
+    "status": "PRONTA",
+    "ms": 1796,
+    "zipBytes": 104959492,
+    "downloadedBytes": 104959492,
+    "peakRssBytes": 704512,
+    "peakRssMiB": 0.7
+  },
+  "substitutions": [],
+  "verdict": "ATENDE",
+  "warmups": [
+    {
+      "status": "PRONTA",
+      "ms": 539,
+      "zipSize": 26266492,
+      "downloadedBytes": 26266492
+    },
+    {
+      "status": "PRONTA",
+      "ms": 1931,
+      "zipSize": 26266554,
+      "downloadedBytes": 26266554
+    },
+    {
+      "status": "PRONTA",
+      "ms": 1964,
+      "zipSize": 26266559,
+      "downloadedBytes": 26266559
+    }
+  ],
+  "samples": [
+    {
+      "status": "PRONTA",
+      "ms": 882,
+      "zipSize": 26266555,
+      "downloadedBytes": 26266555
+    },
+    {
+      "status": "PRONTA",
+      "ms": 1963,
+      "zipSize": 26266556,
+      "downloadedBytes": 26266556
+    },
+    {
+      "status": "PRONTA",
+      "ms": 2009,
+      "zipSize": 26266558,
+      "downloadedBytes": 26266558
+    },
+    {
+      "status": "PRONTA",
+      "ms": 2040,
+      "zipSize": 26266555,
+      "downloadedBytes": 26266555
+    },
+    {
+      "status": "PRONTA",
+      "ms": 1980,
+      "zipSize": 26266558,
+      "downloadedBytes": 26266558
+    },
+    {
+      "status": "PRONTA",
+      "ms": 2015,
+      "zipSize": 26266559,
+      "downloadedBytes": 26266559
+    },
+    {
+      "status": "PRONTA",
+      "ms": 1973,
+      "zipSize": 26266555,
+      "downloadedBytes": 26266555
+    },
+    {
+      "status": "PRONTA",
+      "ms": 2038,
+      "zipSize": 26266558,
+      "downloadedBytes": 26266558
+    },
+    {
+      "status": "PRONTA",
+      "ms": 2003,
+      "zipSize": 26266555,
+      "downloadedBytes": 26266555
+    },
+    {
+      "status": "PRONTA",
+      "ms": 2046,
+      "zipSize": 26266555,
+      "downloadedBytes": 26266555
+    },
+    {
+      "status": "PRONTA",
+      "ms": 2075,
+      "zipSize": 26266553,
+      "downloadedBytes": 26266553
+    },
+    {
+      "status": "PRONTA",
+      "ms": 1944,
+      "zipSize": 26266557,
+      "downloadedBytes": 26266557
+    },
+    {
+      "status": "PRONTA",
+      "ms": 2041,
+      "zipSize": 26266558,
+      "downloadedBytes": 26266558
+    },
+    {
+      "status": "PRONTA",
+      "ms": 2073,
+      "zipSize": 26266559,
+      "downloadedBytes": 26266559
+    },
+    {
+      "status": "PRONTA",
+      "ms": 2081,
+      "zipSize": 26266555,
+      "downloadedBytes": 26266555
+    },
+    {
+      "status": "PRONTA",
+      "ms": 2064,
+      "zipSize": 26266559,
+      "downloadedBytes": 26266559
+    },
+    {
+      "status": "PRONTA",
+      "ms": 2047,
+      "zipSize": 26266553,
+      "downloadedBytes": 26266553
+    },
+    {
+      "status": "PRONTA",
+      "ms": 2024,
+      "zipSize": 26266554,
+      "downloadedBytes": 26266554
+    },
+    {
+      "status": "PRONTA",
+      "ms": 1966,
+      "zipSize": 26266556,
+      "downloadedBytes": 26266556
+    },
+    {
+      "status": "PRONTA",
+      "ms": 2048,
+      "zipSize": 26266554,
+      "downloadedBytes": 26266554
+    },
+    {
+      "status": "PRONTA",
+      "ms": 2014,
+      "zipSize": 26266559,
+      "downloadedBytes": 26266559
+    },
+    {
+      "status": "PRONTA",
+      "ms": 2009,
+      "zipSize": 26266562,
+      "downloadedBytes": 26266562
+    },
+    {
+      "status": "PRONTA",
+      "ms": 2027,
+      "zipSize": 26266557,
+      "downloadedBytes": 26266557
+    },
+    {
+      "status": "PRONTA",
+      "ms": 2083,
+      "zipSize": 26266559,
+      "downloadedBytes": 26266559
+    },
+    {
+      "status": "PRONTA",
+      "ms": 2061,
+      "zipSize": 26266554,
+      "downloadedBytes": 26266554
+    },
+    {
+      "status": "PRONTA",
+      "ms": 2005,
+      "zipSize": 26266561,
+      "downloadedBytes": 26266561
+    },
+    {
+      "status": "PRONTA",
+      "ms": 1986,
+      "zipSize": 26266556,
+      "downloadedBytes": 26266556
+    },
+    {
+      "status": "PRONTA",
+      "ms": 2005,
+      "zipSize": 26266553,
+      "downloadedBytes": 26266553
+    },
+    {
+      "status": "PRONTA",
+      "ms": 1971,
+      "zipSize": 26266560,
+      "downloadedBytes": 26266560
+    },
+    {
+      "status": "PRONTA",
+      "ms": 2025,
+      "zipSize": 26266558,
+      "downloadedBytes": 26266558
+    }
+  ]
+}

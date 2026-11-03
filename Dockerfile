@@ -13,6 +13,7 @@ RUN pnpm build
 FROM build AS admin
 COPY database database
 COPY fixtures fixtures
+COPY packages/contracts packages/contracts
 COPY tools/admin tools/admin
 COPY tools/checks tools/checks
 COPY tests tests

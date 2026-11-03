@@ -22,6 +22,7 @@ const MIME_BY_EXT: Record<string, string> = {
   png: 'image/png',
   jpg: 'image/jpeg',
 };
+const utf8Decoder = new TextDecoder('utf-8', { fatal: true });
 
 export interface CashAccount {
   accountId: string;
@@ -169,7 +170,9 @@ function isSafeIntInRange(value: unknown, min: number, max: number): value is nu
 }
 
 function isStringInRange(value: unknown, min: number, max: number): value is string {
-  return typeof value === 'string' && value.length >= min && value.length <= max;
+  if (typeof value !== 'string') return false;
+  const characters = [...value].length;
+  return characters >= min && characters <= max;
 }
 
 function isValidCivilDate(value: string): boolean {
@@ -1142,6 +1145,32 @@ function hasValidAttachmentSignature(bytes: Buffer, mimeType: string): boolean {
   return false;
 }
 
+function isStaticSummaryHtml(html: string): boolean {
+  // Only the generated report's tags and fixed attributes are allowed. Text is escaped,
+  // so any other '<' indicates markup that could execute when the file is opened.
+  const allowedTag = /<!doctype html>|<html lang="pt-BR">|<meta charset="utf-8">|<meta name="viewport" content="width=device-width,initial-scale=1">|<meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'">|<a href="anexos\/[0-9a-f-]{36}\.(?:pdf|png|jpg)">|<\/a>|<\/?(?:html|title|style|h1|h2|p|pre|table|tr|th|td)>/gi;
+  let offset = 0;
+  let styleStart = -1;
+  for (const match of html.matchAll(allowedTag)) {
+    const nextTag = html.indexOf('<', offset);
+    if (nextTag !== match.index) return false;
+    offset = match.index + match[0].length;
+    const tag = match[0].toLowerCase();
+    if (tag === '<style>') {
+      if (styleStart !== -1) return false;
+      styleStart = offset;
+    } else if (tag === '</style>') {
+      if (styleStart === -1) return false;
+      // CSS imports/functions need @, backslash, slash or parentheses, all excluded here.
+      if (!/^[a-z0-9#.,:%;{}\s-]+$/i.test(html.slice(styleStart, match.index))) return false;
+      styleStart = -1;
+    } else if (styleStart !== -1) {
+      return false;
+    }
+  }
+  return styleStart === -1 && html.indexOf('<', offset) === -1;
+}
+
 async function collectPackageFiles(
   rootDir: string,
   currentDir: string,
@@ -1238,7 +1267,7 @@ export async function verifyDeliveryPackage(
 
   let parsed: unknown;
   try {
-    parsed = JSON.parse(refBytes.toString('utf8'));
+    parsed = JSON.parse(utf8Decoder.decode(refBytes));
   } catch {
     return fail(1, 'MANIFEST_INVALID_JSON', 'Manifesto não contém JSON UTF-8 válido.');
   }
@@ -1289,12 +1318,22 @@ export async function verifyDeliveryPackage(
         return fail(1, 'ATTACHMENT_SIGNATURE_INVALID', `Assinatura binária inválida para ${relPath}.`);
       }
     } else if (fileSpec.role === 'RESUMO_HTML') {
-      const htmlText = bytes.toString('utf8');
-      if (/<script\b|<form\b|<iframe\b|<object\b|https?:\/\//i.test(htmlText)) {
-        return fail(1, 'ACTIVE_HTML_CONTENT', 'resumo.html contém script, formulário ou recurso remoto proibido.');
+      let htmlText: string;
+      try {
+        htmlText = utf8Decoder.decode(bytes);
+      } catch {
+        return fail(1, 'INVALID_UTF8', `Codificação UTF-8 inválida em ${relPath}.`);
+      }
+      if (!isStaticSummaryHtml(htmlText)) {
+        return fail(1, 'ACTIVE_HTML_CONTENT', 'resumo.html contém marcação ou recurso ativo proibido.');
       }
     } else if (fileSpec.role === 'PLANILHA_CSV') {
-      const csvText = bytes.toString('utf8').replace(/\r\n/g, '\n');
+      let csvText: string;
+      try {
+        csvText = utf8Decoder.decode(bytes).replace(/\r\n/g, '\n');
+      } catch {
+        return fail(1, 'INVALID_UTF8', `Codificação UTF-8 inválida em ${relPath}.`);
+      }
       const expectedCsv = buildExpectedCsvString(manifest.transactions).replace(/\r\n/g, '\n');
       if (csvText !== expectedCsv) {
         return fail(1, 'CSV_CONTENT_INVALID', 'movimentacoes.csv diverge das movimentações principais ou omite proteção de fórmula.');

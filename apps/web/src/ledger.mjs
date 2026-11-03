@@ -1,0 +1,352 @@
+const MAX_TRANSACTION_CENTS = 99_999_999_999;
+
+export function parseBrlCents(raw) {
+  if (typeof raw !== 'string') return null;
+  const cleaned = raw.trim().replace(/^R\$\s*/i, '').trim();
+  if (!cleaned || cleaned.startsWith('-') || cleaned.startsWith('+')) return null;
+
+  let integerPart = '';
+  let fractionPart = '00';
+
+  if (cleaned.includes(',')) {
+    const parts = cleaned.split(',');
+    if (parts.length !== 2) return null;
+    if (!/^(?:\d+|\d{1,3}(?:\.\d{3})+)$/.test(parts[0]) || /^0\d+\./.test(parts[0])) return null;
+    integerPart = parts[0].replace(/\./g, '');
+    const frac = parts[1];
+    if (!/^\d{1,2}$/.test(frac)) return null;
+    fractionPart = frac.padEnd(2, '0');
+  } else if (cleaned.includes('.')) {
+    const parts = cleaned.split('.');
+    if (parts.length === 2 && parts[1].length <= 2) {
+      integerPart = parts[0];
+      if (!/^\d{1,2}$/.test(parts[1])) return null;
+      fractionPart = parts[1].padEnd(2, '0');
+    } else {
+      return null;
+    }
+  } else {
+    integerPart = cleaned;
+  }
+
+  if (!/^\d+$/.test(integerPart) || integerPart.length > 10) return null;
+  const cents = BigInt(integerPart) * 100n + BigInt(fractionPart);
+  if (cents < 1n || cents > BigInt(MAX_TRANSACTION_CENTS)) return null;
+  return Number(cents);
+}
+
+export function validateDocumentFile(file) {
+  if (!file || !Number.isSafeInteger(file.size) || file.size <= 0) return 'O arquivo está vazio ou inválido.';
+  if (file.size > 5 * 1024 * 1024) return 'O comprovante deve ter no máximo 5 MiB.';
+  const extension = String(file.name).split('.').at(-1)?.toLowerCase();
+  const types = { pdf: 'application/pdf', png: 'image/png', jpg: 'image/jpeg', jpeg: 'image/jpeg' };
+  if (!extension || !Object.hasOwn(types, extension) || file.type !== types[extension]) {
+    return 'Use um arquivo PDF, PNG ou JPEG.';
+  }
+  return null;
+}
+
+export async function attemptLogout(csrfToken, request = globalThis.fetch) {
+  try {
+    const response = await request('/api/v1/session', {
+      method: 'DELETE',
+      credentials: 'same-origin',
+      headers: { 'X-CSRF-Token': csrfToken },
+    });
+    return { ended: response.ok || response.status === 401, confirmed: response.ok };
+  } catch {
+    return { ended: false, confirmed: false };
+  }
+}
+
+export function formatBrlCents(cents) {
+  if (!Number.isSafeInteger(cents)) return 'R$ 0,00';
+  const negative = cents < 0;
+  const abs = Math.abs(cents);
+  const whole = Math.floor(abs / 100);
+  const frac = String(abs % 100).padStart(2, '0');
+  const formattedWhole = String(whole).replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+  return `${negative ? '-' : ''}R$ ${formattedWhole},${frac}`;
+}
+
+export function allowedClassifications(direction) {
+  return direction === 'ENTRADA'
+    ? ['RECEITA', 'TRANSFERENCIA', 'A_ESCLARECER']
+    : ['DESPESA', 'TRANSFERENCIA', 'A_ESCLARECER'];
+}
+
+export function canMarkPfBusinessExpense(accountType, direction, classification) {
+  return accountType === 'PF' && direction === 'SAIDA' && classification === 'DESPESA';
+}
+
+export function isValidPeriodMonth(month) {
+  if (typeof month !== 'string') return false;
+  const match = /^(\d{4})-(0[1-9]|1[0-2])$/.exec(month);
+  if (!match) return false;
+  const year = Number(match[1]);
+  return year >= 1900 && year <= 9999;
+}
+
+export function shiftPeriodMonth(month, deltaMonths) {
+  if (!isValidPeriodMonth(month)) return '2026-10';
+  const [yStr, mStr] = month.split('-');
+  let totalMonths = Number(yStr) * 12 + (Number(mStr) - 1) + Number(deltaMonths);
+  const minMonths = 1900 * 12;
+  const maxMonths = 9999 * 12 + 11;
+  if (totalMonths < minMonths) totalMonths = minMonths;
+  if (totalMonths > maxMonths) totalMonths = maxMonths;
+  const nextYear = Math.floor(totalMonths / 12);
+  const nextMonth = (totalMonths % 12) + 1;
+  return `${String(nextYear).padStart(4, '0')}-${String(nextMonth).padStart(2, '0')}`;
+}
+
+export function defaultDateForMonth(month, currentDate) {
+  if (typeof currentDate === 'string' && currentDate.startsWith(`${month}-`) && /^\d{4}-\d{2}-\d{2}$/.test(currentDate)) {
+    return currentDate;
+  }
+  return `${month}-01`;
+}
+
+export function nextVersionRequiresReason(historyItems) {
+  return Array.isArray(historyItems) && historyItems.length > 0;
+}
+
+export function nextMonthAction({ loaded, accounts, preview, deliveries }) {
+  if (!loaded || !preview) return { kind: 'loading' };
+  if (accounts.length === 0) return { kind: 'accounts' };
+  if (preview.transactions.length === 0) return { kind: 'transactions' };
+  const missingDocument = preview.pendingItems.find(
+    (item) => item.status === 'PENDENTE' && item.pendingType === 'DOCUMENTO_AUSENTE'
+  );
+  if (missingDocument) return { kind: 'document', transactionId: missingDocument.transactionId };
+  const pendingReimbursement = preview.pendingItems.find(
+    (item) => item.status === 'PENDENTE' && item.pendingType === 'REEMBOLSO_PF_PENDENTE'
+  );
+  if (pendingReimbursement) return { kind: 'reimbursement', transactionId: pendingReimbursement.transactionId };
+  const firstOpen = preview.pendingItems.find((item) => item.status === 'PENDENTE');
+  if (firstOpen?.pendingType === 'DUVIDA_CADASTRADA') return { kind: 'question', transactionId: firstOpen.transactionId };
+  if (firstOpen) return { kind: 'review' };
+  const latest = deliveries.reduce((current, item) => !current || item.versionNumber > current.versionNumber ? item : current, null);
+  if (!latest) return { kind: 'capture' };
+  if (latest.status === 'EM_FILA' || latest.status === 'EM_PROCESSAMENTO') return { kind: 'delivery' };
+  if (latest.status === 'PRONTA' && latest.capturedRevision === preview.revision) return { kind: 'delivery' };
+  return { kind: 'capture' };
+}
+
+const REIMBURSEMENT_STATUS_LABELS = {
+  NAO_APLICAVEL: 'Não se aplica',
+  PENDENTE_REEMBOLSO: 'Reembolso pendente',
+  REEMBOLSADA_NO_MES: 'Reembolsada no mês',
+  REEMBOLSADA_OUTRO_MES: 'Reembolsada em outro mês',
+  LIQUIDACAO_DE_REEMBOLSO: 'Liquidação de reembolso',
+};
+
+const ROLE_IN_PERIOD_LABELS = {
+  DESPESA_ORIGEM_NO_PERIODO: 'Despesa de origem neste mês',
+  REEMBOLSO_PJ_NO_PERIODO: 'Reembolso PJ neste mês',
+  AMBOS_NO_PERIODO: 'Despesa e reembolso neste mês',
+  ENTRADA_PF_NO_PERIODO: 'Entrada PF neste mês',
+};
+
+export function reimbursementStatusLabel(status) {
+  return Object.hasOwn(REIMBURSEMENT_STATUS_LABELS, status) ? REIMBURSEMENT_STATUS_LABELS[status] : status;
+}
+
+export function roleInPeriodLabel(role) {
+  return Object.hasOwn(ROLE_IN_PERIOD_LABELS, role) ? ROLE_IN_PERIOD_LABELS[role] : role;
+}
+
+export function compatibleInflows(inflows, outflowDate) {
+  return inflows.filter((item) => item.occurredOn >= outflowDate);
+}
+
+export function generateIdempotencyKey() {
+  if (typeof globalThis.crypto?.randomUUID === 'function') {
+    return `mimir-${globalThis.crypto.randomUUID()}`;
+  }
+  const alphabet = 'abcdefghijklmnopqrstuvwxyz0123456789';
+  let token = 'mimir-';
+  for (let i = 0; i < 24; i++) {
+    token += alphabet[Math.floor(Math.random() * alphabet.length)];
+  }
+  return token;
+}
+
+export function buildVerifierCommand(periodMonth, versionNumber) {
+  const slug = `entrega-${periodMonth}-v${versionNumber}`;
+  return `node packages/verifier/dist/index.js ./${slug} ./${slug}.manifesto.json`;
+}
+
+export function describeApiError(status, payload) {
+  const code = payload && typeof payload === 'object' && typeof payload.code === 'string' ? payload.code : `HTTP_${status}`;
+  const message =
+    payload && typeof payload === 'object' && typeof payload.message === 'string'
+      ? payload.message
+      : 'Não foi possível concluir a operação.';
+  const requestId =
+    payload && typeof payload === 'object' && typeof payload.requestId === 'string' ? payload.requestId : null;
+  return { code, message, requestId };
+}
+
+export function describePendingError(status, payload) {
+  const described = describeApiError(status, payload);
+  return Object.hasOwn(PENDING_ERROR_MESSAGES, described.code) ? { ...described, message: PENDING_ERROR_MESSAGES[described.code] } : described;
+}
+
+const PENDING_ERROR_MESSAGES = {
+  REVISION_CONFLICT: 'O caderno mudou desde que você abriu este painel. Confira a visão atualizada e repita a ação.',
+  TRANSACTION_INACTIVE: 'Este lançamento foi excluído e não aceita mais alterações de pendência.',
+  PENDING_RESOLVED: 'Esta pendência já está resolvida. Reabra a dúvida antes de justificar ou editar.',
+  PENDING_AUTOMATIC: 'Pendências automáticas não podem ser resolvidas, reabertas ou editadas. Elimine a causa para que elas se resolvam.',
+  QUESTION_ALREADY_EXISTS: 'Este lançamento já tem uma dúvida registrada. Edite ou reabra a dúvida existente.',
+};
+
+const PENDING_TEXT_ERROR = 'Informe um texto de 3 a 2.000 caracteres.';
+
+export function validatePendingText(text) {
+  const value = typeof text === 'string' ? text.trim() : '';
+  const valid = value.length >= 3 && value.length <= 2000;
+  return { value, error: valid ? null : PENDING_TEXT_ERROR };
+}
+
+export function allowedPendingActions(item) {
+  if (!item || !['PENDENTE', 'JUSTIFICADA', 'RESOLVIDA'].includes(item.status)) return [];
+  const actions = [];
+  const open = item.status !== 'RESOLVIDA';
+  if (open) actions.push('JUSTIFY');
+  if (item.pendingType === 'DUVIDA_CADASTRADA') {
+    if (open) actions.push('EDIT', 'RESOLVE');
+    if (item.status !== 'PENDENTE') actions.push('REOPEN');
+  }
+  return actions;
+}
+
+export function hasQuestion(pendingItems, transactionId) {
+  return pendingItems.some((item) => item.transactionId === transactionId && item.pendingType === 'DUVIDA_CADASTRADA');
+}
+
+const PATCH_FIELDS = ['accountId', 'occurredOn', 'direction', 'amountCents', 'description', 'category', 'classification', 'isPfBusinessExpense', 'explanation'];
+const LINKED_LOCKED_FIELDS = ['accountId', 'occurredOn', 'direction', 'amountCents', 'classification', 'isPfBusinessExpense'];
+
+export function buildTransactionPatch(original, draft) {
+  const patch = {};
+  for (const field of PATCH_FIELDS) {
+    const before = typeof original[field] === 'string' ? original[field].trim() : original[field];
+    const after = typeof draft[field] === 'string' ? draft[field].trim() : draft[field];
+    if (before !== after) patch[field] = after;
+  }
+  return Object.keys(patch).length === 0 ? null : patch;
+}
+
+export function lockedFieldsForLinked(isLinked) {
+  return isLinked ? [...LINKED_LOCKED_FIELDS] : [];
+}
+
+export function documentsByTransaction(documents) {
+  const grouped = new Map();
+  for (const document of documents) {
+    for (const transactionId of document.transactionIds) {
+      const list = grouped.get(transactionId);
+      if (list) list.push(document);
+      else grouped.set(transactionId, [document]);
+    }
+  }
+  return grouped;
+}
+
+export function linkableDocuments(documents, transactionId) {
+  return documents.filter((document) => !document.transactionIds.includes(transactionId));
+}
+
+export function formatFileSize(bytes) {
+  if (bytes < 1024) return bytes === 1 ? '1 byte' : `${bytes} bytes`;
+  const unit = bytes < 1024 * 1024 ? 'KB' : 'MB';
+  const value = bytes / (unit === 'KB' ? 1024 : 1024 * 1024);
+  return `${value.toFixed(1).replace('.', ',')} ${unit}`;
+}
+
+const DOCUMENT_ERROR_MESSAGES = {
+  DOCUMENT_ALREADY_LINKED: 'Este documento já está vinculado a este lançamento.',
+  DOCUMENT_NOT_LINKED: 'Este documento não está mais vinculado ao lançamento. Atualize a visão.',
+  TRANSACTION_INACTIVE: 'Este lançamento foi excluído e não aceita mais alterações de documentos.',
+  REVISION_CONFLICT: 'O caderno mudou desde que você abriu este painel. Confira a visão atualizada e repita a ação.',
+  NOT_FOUND: 'Lançamento, documento ou vínculo não encontrado. Atualize a visão.',
+  UPLOAD_LIMIT: 'Há envios demais em andamento. Aguarde um instante e tente novamente.',
+};
+
+const DOCUMENT_STATUS_MESSAGES = {
+  404: DOCUMENT_ERROR_MESSAGES.NOT_FOUND,
+  413: 'O arquivo excede o limite de 5 MiB.',
+  415: 'Tipo de arquivo não permitido. Envie PDF, PNG ou JPEG.',
+  422: 'O arquivo ou os dados enviados são inválidos. Confira o arquivo e tente novamente.',
+  429: DOCUMENT_ERROR_MESSAGES.UPLOAD_LIMIT,
+};
+
+export function describeDocumentError(status, payload) {
+  const described = describeApiError(status, payload);
+  if (Object.hasOwn(DOCUMENT_ERROR_MESSAGES, described.code)) return { ...described, message: DOCUMENT_ERROR_MESSAGES[described.code] };
+  if (Object.hasOwn(DOCUMENT_STATUS_MESSAGES, status)) return { ...described, message: DOCUMENT_STATUS_MESSAGES[status] };
+  return described;
+}
+
+const IMPORT_MAX_BYTES = 1048576;
+
+export function validateImportFile(file) {
+  if (!file) return 'Selecione um arquivo CSV de até 1 MiB.';
+  if (!/\.csv$/i.test(file.name)) return 'O arquivo deve ter extensão .csv.';
+  if (file.size <= 0) return 'O arquivo está vazio.';
+  if (file.size > IMPORT_MAX_BYTES) return 'O arquivo excede o limite de 1 MiB.';
+  return null;
+}
+
+export function importReady(preview) {
+  return Boolean(preview) && preview.totals.invalid === 0 && preview.totals.conflicting === 0;
+}
+
+const IMPORT_STATUS_LABELS = {
+  NOVA: 'Nova',
+  IGNORADA: 'Já importada',
+  REPETIDA: 'Repetida no arquivo',
+  CONFLITO: 'Conflito',
+  INVALIDA: 'Inválida',
+};
+
+const IMPORT_REASON_LABELS = {
+  ORIGIN_CHANGED: 'Origem já importada com conteúdo diferente',
+  ORIGIN_DELETED: 'Origem de lançamento excluído; não é restaurada',
+  DUPLICATE_KEY_DIFFERENT_CONTENT: 'Mesmo external_id com conteúdo diferente no arquivo',
+  INVALID_FIELD: 'Campo inválido',
+  OUT_OF_PERIOD: 'Fora do mês',
+  INVALID_RULE: 'Regra de lançamento',
+};
+
+export function importStatusLabel(status) {
+  return Object.hasOwn(IMPORT_STATUS_LABELS, status) ? IMPORT_STATUS_LABELS[status] : status;
+}
+
+export function importReasonLabel(code) {
+  return Object.hasOwn(IMPORT_REASON_LABELS, code) ? IMPORT_REASON_LABELS[code] : code;
+}
+
+const IMPORT_ERROR_MESSAGES = {
+  IMPORT_INVALID_ROWS: 'O arquivo tem linhas inválidas. Corrija o CSV e pré-visualize de novo; nada foi gravado.',
+  FILE_HASH_MISMATCH: 'O arquivo mudou desde a pré-visualização. Pré-visualize novamente.',
+  IMPORT_CONFLICT: 'Há linhas em conflito com lançamentos já importados. Nada foi gravado.',
+  REVISION_CONFLICT: 'O caderno mudou desde a pré-visualização. Pré-visualize novamente.',
+  ACCOUNT_INACTIVE: 'A conta está inativa e não aceita importação.',
+  UPLOAD_LIMIT: 'Há envios demais em andamento. Aguarde um instante e tente novamente.',
+  IMPORTED_TRANSACTION_ACCOUNT_LOCKED: 'Conta de lançamento importado não pode ser trocada.',
+};
+
+const IMPORT_STATUS_MESSAGES = {
+  413: 'O arquivo excede o limite de 1 MiB.',
+  415: 'Envie o arquivo como CSV.',
+  429: IMPORT_ERROR_MESSAGES.UPLOAD_LIMIT,
+};
+
+export function describeImportError(status, payload) {
+  const described = describeApiError(status, payload);
+  if (Object.hasOwn(IMPORT_ERROR_MESSAGES, described.code)) return { ...described, message: IMPORT_ERROR_MESSAGES[described.code] };
+  if (Object.hasOwn(IMPORT_STATUS_MESSAGES, status)) return { ...described, message: IMPORT_STATUS_MESSAGES[status] };
+  return described;
+}
