@@ -1,5 +1,7 @@
 # Texto para o relatório: resultados da avaliação C01–C06
 
+> Rascunho superado: o texto vigente está no relatório técnico (v10). Em 07/11/2026 as tabelas abaixo foram alinhadas aos vereditos dele (C01, C02, C03, C05 e C06 com desvio declarado; C03 com 29 recusas e 7 casos sem referência a objeto de A); o restante do rascunho pode divergir.
+
 Proposta de texto para substituir, no `Relatorio_TCC_v04`, a seção 4.3 (evidências e "Resultado observado" das fichas), a seção 5 e a seção 6. As seções 4.1 e 4.2 permanecem como plano; as diferenças entre o plano e a execução estão declaradas abaixo. Fonte de todos os números: `docs/avaliacao/resultados/` (tag `poc-v1.0.0`).
 
 ---
@@ -12,12 +14,12 @@ Ambiente: Windows 11 Pro, Docker Desktop 29.9.2 sobre WSL2 (kernel 6.18), proces
 
 | Cenário | RNF | Medida planejada | Resultado observado | Veredito |
 | --- | --- | --- | --- | --- |
-| C01 | RNF-01 | 100 intercalações sem mistura de revisões | 100/100 corretas; 0 misturas; entrega anterior idêntica byte a byte em 100/100 | Atende |
-| C02 | RNF-02 | 30 falhas transitórias recuperadas em até 120 s | 30/30 em PRONTA; 0 FALHA terminal; maior tempo 28,3 s | Atende |
-| C03 | RNF-03 | 36 recusas e 12 controles positivos | 36/36 recusas sem vazamento nem mutação; 12/12 controles aceitos | Atende |
+| C01 | RNF-01 | 100 intercalações sem mistura de revisões | 100/100 corretas; 0 misturas; entrega anterior idêntica byte a byte em 100/100 | Atende com desvio declarado |
+| C02 | RNF-02 | 30 falhas transitórias recuperadas em até 120 s | 30/30 em PRONTA; 0 FALHA terminal; maior tempo 28,3 s | Atende com desvio declarado |
+| C03 | RNF-03 | 36 recusas e 12 controles positivos | 36/36 sem vazamento nem mutação de A (29 recusas; 7 casos sem referência a objeto de A); 12/12 controles aceitos | Atende com desvio declarado |
 | C04 | RNF-04 | 20 divergências detectadas e controle íntegro aceito | 20/20 detectadas; controle íntegro aceito; limitação demonstrada | Atende |
 | C05 | RNF-05 | 20 registros em duas combinações, offline | 20/20 no Linux (Chromium e LibreOffice); Firefox no Windows; sem LibreOffice no Windows | Atende com desvio declarado |
-| C06 | RNF-06 | p95 ≤ 10 s; pico RSS ≤ 512 MiB | p95 2,06 s; pico RSS 321,5 MiB | Atende |
+| C06 | RNF-06 | p95 ≤ 10 s; pico RSS ≤ 512 MiB | p95 2,06 s; pico RSS 321,5 MiB | Atende com desvio declarado |
 
 Seis execuções foram invalidadas por defeito do próprio harness ou do ambiente (três no C01, uma no C04 e duas no C06), nenhuma por falha do produto. Todas foram mantidas com o motivo registrado; as que produziram resultado completo estão preservadas no histórico. No C01, a primeira execução completa usava uma verificação derivada que contradizia o desenho documentado (a captura não incrementa a revisão); o protocolo recebeu errata antes da repetição integral do cenário, sem mudar o critério do requisito.
 
@@ -45,12 +47,12 @@ Seis execuções foram invalidadas por defeito do próprio harness ou do ambient
 
 | Ficha | Resultado observado |
 | --- | --- |
-| C01 | 100/100 intercalações corretas (25 por tipo); 0 misturas; v1 preservada em 100/100. Atende. |
-| C02 | 30/30 recuperadas (6 por ponto); 0 FALHA; maior tempo 28,3 s após restabelecimento; até 2 tentativas. Atende. |
-| C03 | 36/36 recusas, 12/12 com sessão revogada, 12/12 controles aceitos, sem vazamento nem mutação, na matriz do protocolo (repetição). Atende. |
+| C01 | 100/100 intercalações corretas (25 por tipo); 0 misturas; v1 preservada em 100/100. Atende com desvio declarado. |
+| C02 | 30/30 recuperadas (6 por ponto); 0 FALHA; maior tempo 28,3 s após restabelecimento; até 2 tentativas. Atende com desvio declarado. |
+| C03 | 36/36 sem vazamento nem mutação de A (29 recusas e 7 casos sem referência a objeto de A), 12/12 recusas com sessão revogada, 12/12 controles aceitos, na matriz do protocolo (repetição). Atende com desvio declarado. |
 | C04 | 20/20 detectadas; controle íntegro aceito; autorreferência recusada; limitação sem referência confiável demonstrada. Atende. |
 | C05 | 20/20 registros iguais ao oráculo no Chromium e no LibreOffice (Linux) e conferidos no Firefox (Windows); LibreOffice no Windows não executado. Atende com desvio declarado. |
-| C06 | p95 2,06 s; pico RSS 321,5 MiB; limite de 100 MiB concluído com pico de 658 MiB. Atende. |
+| C06 | p95 2,06 s; pico RSS 321,5 MiB; limite de 100 MiB concluído com pico de 658 MiB. Atende com desvio declarado. |
 
 ---
 
