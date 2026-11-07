@@ -6,14 +6,16 @@ Versão avaliada: tag `poc-v1.0.0` (commit `14605c6`, I01–I16). Protocolo fixa
 
 | RNF | Cenário | Veredito | Números principais |
 | --- | --- | --- | --- |
-| RNF-01 | [C01](C01.md) | atende | 100/100 intercalações corretas; 0 misturas de revisão; entrega v1 preservada em 100/100 |
-| RNF-02 | [C02](C02.md) | atende | 30/30 recuperadas; 0 FALHA terminal; maior tempo após restauração 28,3 s (meta 120 s) |
-| RNF-03 | [C03](C03.md) | atende | Matriz da §4 (repetição após E4): 36/36 negativos bloqueados, 12/12 com sessão revogada, 12/12 controles positivos aceitos |
+| RNF-01 | [C01](C01.md) | atende com desvio declarado | 100/100 intercalações corretas; 0 misturas de revisão; entrega v1 preservada em 100/100 |
+| RNF-02 | [C02](C02.md) | atende com desvio declarado | 30/30 recuperadas; 0 FALHA terminal; maior tempo após restauração 28,3 s (meta 120 s) |
+| RNF-03 | [C03](C03.md) | atende com desvio declarado | Matriz da §4 (repetição após E4): 36/36 negativos sem vazamento nem mutação de A (29 recusas; 7 sem referência a objeto de A), 12/12 com sessão revogada, 12/12 controles positivos aceitos |
 | RNF-04 | [C04](C04.md) | atende | 20/20 mutações detectadas (5 por classe); controle íntegro aceito; limitação sem referência confiável documentada |
 | RNF-05 | [C05](C05.md) | atende com desvio declarado | 20/20 registros iguais ao oráculo no Chromium (180 campos) e no LibreOffice (160 campos); Firefox no Windows conferido pelo usuário; Windows/LibreOffice não executado (E3) |
-| RNF-06 | [C06](C06.md) | atende | 30/30 prontas; p95 2.057 ms (meta 10 s); pico de RSS 321,5 MiB (meta 512 MiB) |
+| RNF-06 | [C06](C06.md) | atende com desvio declarado | 30/30 prontas; p95 2.057 ms (meta 10 s); pico de RSS 321,5 MiB (meta 512 MiB) |
 
 Veredito de C05 e a conferência dos 20 registros: **VERIFICADO** para as comparações automáticas (`comparacao-c05.json`); a conferência final é decisão do autor, registrada em `C05.json` (`userCheck`).
+
+Em 07/11/2026 os vereditos de C01, C02, C03 e C06 passaram a declarar o desvio em relação ao plano, como no relatório técnico (seção 4.3.2); os números e os JSON não mudaram.
 
 ## Desvios e erratas
 
