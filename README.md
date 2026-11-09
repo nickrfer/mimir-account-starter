@@ -1,6 +1,6 @@
 # Mimir Account
 
-PoC de organização financeira/documental mensal. **I01–I10 implementados (primeira jornada funcional completa)**: fundação Docker, provisionamento/sessões, contas PF/PJ, lançamentos manuais, upload documental imutável, prévia mensal consistente, captura imutável de snapshot, executor/empacotamento/publicação, verificador CLI independente e integração da interface web. IA permanece somente planejada. Resultados e limites de validação em [STATUS](docs/STATUS.md).
+PoC de organização financeira/documental mensal. **Versão avaliada: tag `poc-v1.0.0` (incrementos I01–I16).** A primeira jornada funcional completa (I01–I10) cobre fundação Docker, provisionamento/sessões, contas PF/PJ, lançamentos manuais, upload documental imutável, prévia mensal consistente, captura imutável de snapshot, executor/empacotamento/publicação, verificador CLI independente e integração da interface web; I11–I16 completam os 14 requisitos funcionais. **A avaliação formal C01–C06 foi executada em 02/11/2026**: protocolo, vereditos, desvios declarados e registros em [resultados da avaliação](docs/avaliacao/resultados/README.md). IA permanece somente planejada. Resultados e limites de validação em [STATUS](docs/STATUS.md).
 
 ## Fluxo principal: Docker e Compose
 
@@ -169,8 +169,8 @@ pnpm test:integration
 
 mimir_migrator possui schema/tabelas. mimir_runtime não possui tabelas nem privilégios administrativos; sem DDL/CREATE/TEMP/TRUNCATE, associação ao migrador ou INSERT em users/workspaces. Documents, snapshots, snapshot_documents, idempotency_keys e delivery_packages permitem SELECT/INSERT apenas; delivery_operations permite UPDATE somente nas colunas de estado/posse/tentativa, guardado por triggers. FKs compostas/RESTRICT protegem integridade; API não lê .env.admin e não recebe credenciais administrativas. Configurações preenchidas não entram no build.
 
-Esquema: users, workspaces, sessions, accounts, periods, transactions, documents, transaction_documents, pending_items, delivery_snapshots, snapshot_documents, delivery_operations, idempotency_keys, delivery_packages. Fixtures são sintéticas; nenhum seed público. Proteção de privilégios não resiste a administrador que altere esquema/permissões. Rotação de segredos e backup/restauração não foram automatizados. C01–C06 continuam não executados.
+Esquema: users, workspaces, sessions, accounts, periods, transactions, documents, transaction_documents, pending_items, delivery_snapshots, snapshot_documents, delivery_operations, idempotency_keys, delivery_packages. Fixtures são sintéticas; nenhum seed público. Proteção de privilégios não resiste a administrador que altere esquema/permissões. Rotação de segredos e backup/restauração não foram automatizados. C01–C06 foram executados sobre `poc-v1.0.0`; ver [resultados](docs/avaliacao/resultados/README.md).
 
 [Assistente de preparação mensal com IA](docs/optional-monthly-assistant.md): **somente proposta**, depois da jornada funcional, desabilitado por padrão. Sem SDK/chave/tela/configuração antecipada; sistema permanece independente de IA.
 
-Consulte [STATUS](docs/STATUS.md), [DECISIONS](docs/DECISIONS.md), [DEPENDENCIES](docs/DEPENDENCIES.md) e [START_HERE](docs/START_HERE.md). Contratos vigentes preservados: manifesto v2, CSV v1 e OpenAPI 0.5.0. Licença própria MIT. Sem publicação ou deploy.
+Consulte [STATUS](docs/STATUS.md), [DECISIONS](docs/DECISIONS.md), [DEPENDENCIES](docs/DEPENDENCIES.md) e [START_HERE](docs/START_HERE.md). Contratos vigentes preservados: manifesto v2, CSV v1 e OpenAPI 0.5.0. Licença própria MIT. Sem deploy em nuvem: a execução de referência é local.
