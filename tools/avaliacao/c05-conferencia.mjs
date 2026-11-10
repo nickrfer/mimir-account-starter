@@ -8,7 +8,7 @@ const dom = await readFile(join(out, 'linux/chromium-dom.html'), 'utf8');
 const loCsv = await readFile(join(out, 'linux/exportado/movimentacoes.csv'), 'utf8');
 
 const LABEL = { ENTRADA: 'Entrada', SAIDA: 'Saída', RECEITA: 'Receita', DESPESA: 'Despesa', TRANSFERENCIA: 'Transferência', A_ESCLARECER: 'A esclarecer',
-  PF: 'Pessoa física', PJ: 'Pessoa jurídica', NAO_APLICAVEL: '—', PENDENTE_REEMBOLSO: 'Reembolso pendente', REEMBOLSADA_NO_MES: 'Reembolsada no mês',
+  PF: 'Pessoa física', PJ: 'Pessoa jurídica', NAO_APLICAVEL: '-', PENDENTE_REEMBOLSO: 'Reembolso pendente', REEMBOLSADA_NO_MES: 'Reembolsada no mês',
   REEMBOLSADA_OUTRO_MES: 'Reembolsada em outro mês', LIQUIDACAO_DE_REEMBOLSO: 'Liquidação de reembolso' };
 const brl = cents => { const a = Math.abs(cents), r = String((a - a % 100) / 100).replace(/\B(?=(\d{3})+(?!\d))/g, '.'); return `${cents < 0 ? '-' : ''}R$ ${r},${String(a % 100).padStart(2, '0')}`; };
 const ddmmyyyy = iso => iso.split('-').reverse().join('/');
@@ -49,13 +49,13 @@ const records = reference.records.map(r => {
 const summary = { records: records.length, chromiumOk: records.filter(r => r.htmlOk).length, libreofficeOk: records.filter(r => r.loOk).length };
 await writeFile(join(out, 'comparacao-c05.json'), JSON.stringify({ summary, records }, null, 2));
 const img = async p => `data:image/png;base64,${(await readFile(join(out, p))).toString('base64')}`;
-const cellRow = c => `<tr class="${c.ok ? 'ok' : 'bad'}"><td>${esc(c.field)}</td><td>${esc(c.expected)}</td><td>${esc(c.observed ?? '—')}</td><td>${c.ok ? 'igual' : 'DIFERENTE'}</td></tr>`;
+const cellRow = c => `<tr class="${c.ok ? 'ok' : 'bad'}"><td>${esc(c.field)}</td><td>${esc(c.expected)}</td><td>${esc(c.observed ?? '-')}</td><td>${c.ok ? 'igual' : 'DIFERENTE'}</td></tr>`;
 const html = `<!doctype html><html lang="pt-BR"><meta charset="utf-8"><title>Conferência C05</title>
 <style>body{font:14px/1.5 system-ui,sans-serif;max-width:1200px;margin:24px auto;padding:0 16px;color:#1d2420}h1{font-size:22px}table{border-collapse:collapse;width:100%;margin:6px 0 18px}td,th{border:1px solid #cfd8d3;padding:4px 8px;text-align:left;vertical-align:top;white-space:pre-wrap}th{background:#eef3f0}.bad td{background:#fde8e6}.ok td:last-child{color:#1b7a3a}details{margin:6px 0}summary{cursor:pointer;font-weight:600}img{max-width:100%;border:1px solid #cfd8d3}.grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}</style>
-<h1>Conferência C05 — 20 registros de referência</h1>
+<h1>Conferência C05 - 20 registros de referência</h1>
 <p>Oráculo: manifesto da entrega <code>${esc(reference.snapshotId)}</code> (SHA-256 ${esc(reference.manifestSha256)}). Automático: Chromium Linux ${summary.chromiumOk}/20 iguais no HTML renderizado; LibreOffice Linux ${summary.libreofficeOk}/20 iguais no CSV interpretado. Firefox Windows: conferência visual pela captura abaixo.</p>
 <p><b>Como conferir:</b> para cada registro, compare a linha do oráculo com a captura do Firefox (Windows) e do Chromium (Linux). Responda no chat com "C05 conferido: 20/20" ou indique os números com divergência.</p>
-${records.map(r => `<details${r.htmlOk && r.loOk ? '' : ' open'}><summary>${r.n}. ${esc(r.ref)} — ${esc(r.description)} — Chromium: ${r.htmlOk ? 'ok' : 'DIVERGE'} · LibreOffice: ${r.loOk ? 'ok' : 'DIVERGE'}</summary>
+${records.map(r => `<details${r.htmlOk && r.loOk ? '' : ' open'}><summary>${r.n}. ${esc(r.ref)} - ${esc(r.description)} - Chromium: ${r.htmlOk ? 'ok' : 'DIVERGE'} · LibreOffice: ${r.loOk ? 'ok' : 'DIVERGE'}</summary>
 <table><tr><th colspan="4">Resumo HTML (Chromium, Linux)</th></tr><tr><th>Campo</th><th>Esperado (oráculo)</th><th>Exibido</th><th></th></tr>${r.htmlChecks.map(cellRow).join('')}</table>
 <table><tr><th colspan="4">CSV no LibreOffice (Linux, valores como exibidos)</th></tr><tr><th>Campo</th><th>Esperado</th><th>Exibido</th><th></th></tr>${r.loChecks.map(cellRow).join('')}</table></details>`).join('\n')}
 <h2>Capturas</h2><div class="grid"><figure><figcaption>Firefox (Windows, offline)</figcaption><img src="${await img('windows/firefox-resumo.png')}"></figure>

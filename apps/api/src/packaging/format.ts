@@ -4,7 +4,7 @@ const LABELS: ReadonlyMap<string, string> = new Map([
   ['ENTRADA', 'Entrada'], ['SAIDA', 'Saída'],
   ['RECEITA', 'Receita'], ['DESPESA', 'Despesa'], ['TRANSFERENCIA', 'Transferência'], ['A_ESCLARECER', 'A esclarecer'],
   ['PF', 'Pessoa física'], ['PJ', 'Pessoa jurídica'],
-  ['NAO_APLICAVEL', '—'], ['PENDENTE_REEMBOLSO', 'Reembolso pendente'], ['REEMBOLSADA_NO_MES', 'Reembolsada no mês'],
+  ['NAO_APLICAVEL', '-'], ['PENDENTE_REEMBOLSO', 'Reembolso pendente'], ['REEMBOLSADA_NO_MES', 'Reembolsada no mês'],
   ['REEMBOLSADA_OUTRO_MES', 'Reembolsada em outro mês'], ['LIQUIDACAO_DE_REEMBOLSO', 'Liquidação de reembolso'],
   ['DESPESA_ORIGEM_NO_PERIODO', 'Despesa de origem no mês'], ['REEMBOLSO_PJ_NO_PERIODO', 'Reembolso PJ no mês'],
   ['AMBOS_NO_PERIODO', 'Despesa e reembolso no mês'], ['ENTRADA_PF_NO_PERIODO', 'Entrada PF no mês'],

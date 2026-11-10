@@ -110,8 +110,8 @@ try {
   const result = { ...env, finishedAt: new Date().toISOString(), criterion: 'Bloquear os 36 casos negativos (12 operações × 3 condições) com 12 controles positivos aceitos, sem vazamento nem mutação (RNF-03).',
     summary: { negatives: core.length, negativesBlocked: core.filter(c => c.pass).length, extraRevokedSession: negatives.length - core.length, extraRevokedSessionBlocked: negatives.filter(c => c.condition === 'N1-sessao-revogada' && c.pass).length,
       positives: positives.length, positivesAccepted: positives.filter(c => c.pass).length, invalidRuns: 0 }, verdict: verdict ? 'ATENDE' : 'NAO_ATENDE', cases };
-  const row = c => `| ${c.op} | ${c.condition} | ${c.expected} | ${c.observed ?? '—'}${c.code ? ` ${c.code}` : ''} | ${c.unchanged === undefined ? '—' : c.unchanged ? 'sim' : 'não'} | ${c.pass ? 'ok' : 'FALHA'} |`;
-  const md = `# Resultado C03 — Segurança e isolamento (RNF-03)
+  const row = c => `| ${c.op} | ${c.condition} | ${c.expected} | ${c.observed ?? '-'}${c.code ? ` ${c.code}` : ''} | ${c.unchanged === undefined ? '-' : c.unchanged ? 'sim' : 'não'} | ${c.pass ? 'ok' : 'FALHA'} |`;
+  const md = `# Resultado C03 - Segurança e isolamento (RNF-03)
 
 Veredito: **${result.verdict === 'ATENDE' ? 'atende' : 'não atende'}** ao critério: ${result.criterion}
 

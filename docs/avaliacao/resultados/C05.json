@@ -89,7 +89,7 @@
     {
       "n": 2,
       "ref": "#f5a308c9",
-      "description": "Consultoria — São Paulo/SP",
+      "description": "Consultoria - São Paulo/SP",
       "chromium": true,
       "libreoffice": true,
       "user": true
@@ -185,7 +185,7 @@
     {
       "n": 14,
       "ref": "#cf1d80ef",
-      "description": "Equipamento — notebook",
+      "description": "Equipamento - notebook",
       "chromium": true,
       "libreoffice": true,
       "user": true
@@ -217,7 +217,7 @@
     {
       "n": 18,
       "ref": "#cd39e5cd",
-      "description": "Imposto sobre serviço — ISS",
+      "description": "Imposto sobre serviço - ISS",
       "chromium": true,
       "libreoffice": true,
       "user": true

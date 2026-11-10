@@ -133,8 +133,8 @@ try {
     summary: { mutations: mutations.length, detected: mutations.filter(c => c.pass).length, byClass, controls: controls.map(c => ({ id: c.id, pass: c.pass })), invalidRuns: invalidRuns.length },
     invalidRuns,
     verdict: verdict ? 'ATENDE' : 'NAO_ATENDE', cases };
-  const row = c => `| ${c.id} | ${c.class} | ${c.description} | ${c.expectedExit} | ${c.observedExit} | ${c.code ?? '—'} | ${c.pass ? 'ok' : 'FALHA'} |`;
-  await writeResult(result, `# Resultado C04 — Integridade e rastreabilidade (RNF-04)
+  const row = c => `| ${c.id} | ${c.class} | ${c.description} | ${c.expectedExit} | ${c.observedExit} | ${c.code ?? '-'} | ${c.pass ? 'ok' : 'FALHA'} |`;
+  await writeResult(result, `# Resultado C04 - Integridade e rastreabilidade (RNF-04)
 
 Veredito: **${verdict ? 'atende' : 'não atende'}** ao critério: ${result.criterion}
 

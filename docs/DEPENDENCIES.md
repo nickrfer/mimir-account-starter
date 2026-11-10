@@ -1,4 +1,4 @@
-# Versões e licenças — I01, 31/10/2026
+# Versões e licenças - I01, 31/10/2026
 
 Versões exatas no package.json de cada workspace e em pnpm-lock.yaml. Node instalado foi mantido; nenhum gerenciador paralelo ou runtime global foi instalado.
 

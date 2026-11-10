@@ -11,7 +11,7 @@ Plano exigido por `docs/requirements.md` ("Os pontos exatos de falha e a matriz 
 - **Evidência por cenário**: `docs/avaliacao/resultados/Cxx.json` (sanitizado: ids sintéticos, contagens, tempos, códigos, hashes; sem credenciais, cookies ou conteúdo financeiro além do sintético) e `docs/avaliacao/resultados/Cxx.md` (ambiente, comandos, resultado esperado e observado, desvios, ameaças). Logs brutos ficam em `.local/avaliacao/`.
 - **Resultado**: cada cenário declara **atende** / **não atende** ao critério de `requirements.md`. Um caso que não atende é reportado como tal; não se reexecuta seletivamente para "passar". Execuções inválidas (falha do próprio harness, não do produto) são registradas com motivo e substituídas; o número de substituições é publicado.
 
-## 2. C01 — Consistência da captura (RNF-01)
+## 2. C01 - Consistência da captura (RNF-01)
 
 **Critério**: nenhuma mistura de revisões nas 100 intercalações; cada captura resulta em snapshot consistente **ou** 409 sem nova versão, e os bytes de entregas anteriores são preservados.
 
@@ -30,7 +30,7 @@ Plano exigido por `docs/requirements.md` ("Os pontos exatos de falha e a matriz 
 
 **Verificações por execução**: (a) exatamente uma das duas operações com revisão R vence; a outra recebe 409 `REVISION_CONFLICT`; (b) se a captura venceu, o payload do snapshot é idêntico (canonicalizado) ao estado lido antes da mutação, e o pacote publicado passa no verificador offline; (c) se a mutação venceu, nenhuma versão nova existe e uma captura posterior com a revisão nova reflete a mutação; (d) o ZIP e o manifesto da v1 são byte a byte iguais aos baixados antes; (e) a revisão final é coerente (R+1 com mutação vencedora, R sem).
 
-## 3. C02 — Recuperação (RNF-02)
+## 3. C02 - Recuperação (RNF-02)
 
 **Critério**: 30 execuções com uma falha transitória (6 por ponto); concluir em PRONTA, sem versão duplicada nem pacote parcial, em até 120 s após restabelecer API e banco. FALHA terminal não conta como recuperação.
 
@@ -48,7 +48,7 @@ Plano exigido por `docs/requirements.md` ("Os pontos exatos de falha e a matriz 
 
 **Verificações**: estado final PRONTA; tempo entre "API e banco saudáveis de novo" (`/ready` 200) e PRONTA ≤ 120 s; exatamente uma linha em `delivery_packages` por snapshot; nenhuma versão extra; pacote verificado offline; volume preservado; `attempt_count ≤ 3`. Execução que termina em FALHA é contada como não recuperada.
 
-## 4. C03 — Segurança e isolamento (RNF-03)
+## 4. C03 - Segurança e isolamento (RNF-03)
 
 **Critério**: bloquear os 36 casos negativos (12 operações × 3 condições), com 12 controles positivos aceitos; sem vazamento nem mutação indevida.
 
@@ -60,7 +60,7 @@ Plano exigido por `docs/requirements.md` ("Os pontos exatos de falha e a matriz 
 
 **Verificações**: status esperado; contagem de linhas e revisão de A e B iguais antes/depois de cada negativo; corpo de erro sem dados do outro espaço.
 
-## 5. C04 — Integridade e rastreabilidade do pacote (RNF-04)
+## 5. C04 - Integridade e rastreabilidade do pacote (RNF-04)
 
 **Critério**: detectar os 20 casos (5 por classe) com o verificador offline e uma referência confiável externa; controle íntegro aceito; controle de limitação sem referência confiável documentado.
 
@@ -77,17 +77,17 @@ Plano exigido por `docs/requirements.md` ("Os pontos exatos de falha e a matriz 
 
 **Verificações**: código de saída 1 e código de diagnóstico coerente com a classe em todos os 20; nenhum falso positivo no C+.
 
-## 6. C05 — Portabilidade offline (RNF-05)
+## 6. C05 - Portabilidade offline (RNF-05)
 
 **Critério**: conferir 20 registros nas combinações Windows/Firefox/LibreOffice e Linux/Chromium/LibreOffice, preservando datas, acentos, valores e relações, offline e sem login.
 
 **Massa**: entrega com 20 lançamentos de referência cobrindo acentos e caracteres especiais, valores de 1 centavo a bilhões, PF/PJ, reembolso entre meses, pendências justificadas e documentos; oráculo dos 20 registros gerado do snapshot (`referencia-c05.csv`).
 
-**Execução**: Windows — Firefox abre `resumo.html` via `file://` com rede desabilitada; LibreOffice Calc (headless) converte `movimentacoes.csv` (UTF-8, vírgula) para planilha e exporta os valores. Linux (WSL2) — Chromium headless e LibreOffice headless no mesmo procedimento. Instalação de cada ferramenta só com autorização explícita do usuário. O harness extrai os valores exibidos (texto do HTML e células do CSV convertido) e monta a planilha de conferência; **o usuário confere os 20 registros** e registra a decisão por registro.
+**Execução**: Windows - Firefox abre `resumo.html` via `file://` com rede desabilitada; LibreOffice Calc (headless) converte `movimentacoes.csv` (UTF-8, vírgula) para planilha e exporta os valores. Linux (WSL2) - Chromium headless e LibreOffice headless no mesmo procedimento. Instalação de cada ferramenta só com autorização explícita do usuário. O harness extrai os valores exibidos (texto do HTML e células do CSV convertido) e monta a planilha de conferência; **o usuário confere os 20 registros** e registra a decisão por registro.
 
 **Verificações**: 20/20 registros iguais ao oráculo em data, descrição acentuada, valor, conta/tipo, categoria, documentos e vínculos, nas duas combinações; nenhuma requisição de rede (HTML com CSP `default-src 'none'`); versões registradas.
 
-## 7. C06 — Desempenho (RNF-06)
+## 7. C06 - Desempenho (RNF-06)
 
 **Critério**: geração de 200 movimentações com 50 anexos (25 MiB) com p95 ≤ 10 s (29ª amostra ordenada de 30) após 3 aquecimentos; pico de RSS da API ≤ 512 MiB na geração e no download sequencial; uma geração e um download por vez.
 
@@ -109,7 +109,7 @@ C03 → C04 → C01 → C02 → C05 → C06 (do mais automatizável ao que exige
 
 ## Errata
 
-### E1 — C01, verificação (a) — 02/11/2026, durante a coleta
+### E1 - C01, verificação (a) - 02/11/2026, durante a coleta
 
 A verificação derivada "(a) exatamente uma das duas operações com revisão R vence; a outra recebe 409" contradiz o desenho documentado antes deste protocolo: a captura **não incrementa** a revisão (constituição, Princípio III; `docs/protocols.md` §6.1). Logo, quando a captura é atendida primeiro, a mutação seguinte com a mesma revisão R é legitimamente aceita e leva o espaço a R+1, sem afetar o snapshot já capturado.
 
@@ -123,20 +123,20 @@ O critério de `docs/requirements.md` (nenhuma mistura; snapshot consistente ou 
 
 O C01 é repetido integralmente com as verificações corrigidas.
 
-### E2 — C06, nome da coluna de medição — 02/11/2026, antes da coleta do C06
+### E2 - C06, nome da coluna de medição - 02/11/2026, antes da coleta do C06
 
 A §7 cita `delivery_packages.published_at`; a coluna real do instante de publicação é `delivery_packages.created_at` (migração 007), gravada no mesmo commit que marca a operação PRONTA. A medição é a mesma: `delivery_packages.created_at − delivery_operations.created_at`, no relógio do banco.
 
-### E3 — C05, combinação Windows — 02/11/2026, durante a coleta, por decisão do usuário
+### E3 - C05, combinação Windows - 02/11/2026, durante a coleta, por decisão do usuário
 
 A instalação do LibreOffice no Windows (winget, autorizada) ficou aguardando elevação de privilégio e foi cancelada por decisão do usuário. A combinação Windows/Firefox/LibreOffice é executada **sem o LibreOffice**: no Windows, o resumo é aberto no Firefox offline; a leitura do `movimentacoes.csv` por planilha é conferida apenas no LibreOffice do lado Linux (contêiner Debian 12, LibreOffice 7.4.7.2, sem rede). Desvio declarado; o C05 é reportado como atendido apenas com esse desvio. Nenhuma biblioteca substitui o LibreOffice na conferência.
 
-### E4 — C03, matriz executada — 02/11/2026, após a coleta, na revisão do harness
+### E4 - C03, matriz executada - 02/11/2026, após a coleta, na revisão do harness
 
 A matriz executada difere da §4 em duas operações: no lugar de (6) `POST /transactions/{id}/document-links` e (8) `POST /deliveries`, o harness testou `POST /transactions/{id}/document-replacements` e `DELETE /transactions/{id}/document-links/{documentId}`. `POST /transactions/{id}/document-links` aparece apenas como caso N3 de outra operação, e **`POST /deliveries` não foi testado sem sessão nem por outro proprietário**. Além disso, 5 dos 36 casos só reprovariam por vazamento de identificador, não por status: o N2 da prévia (B lê a própria prévia, 200) e o N3 de quatro leituras (B lista os próprios lançamentos, documentos, pendências e entregas, 200). A execução com a matriz divergente (`mimir-eval-c03-132fb6ad`, 36/36) está mantida em `resultados/historico/C03-execucao-1-matriz-divergente.{json,md}`.
 
 **Repetição (02/11/2026, a pedido do usuário):** o C03 foi repetido integralmente com as 12 operações da §4, sem mudança no produto (`mimir-eval-c03-f8fbd1dc`, commit `9b6f435`). Em `POST /deliveries` o comando não referencia objeto de A, então N2 é B capturando o próprio mês e N3 é B reutilizando a `Idempotency-Key` da captura de A (a chave tem escopo por espaço); nos dois casos só A precisa ficar inalterado e a resposta não pode ser a operação de A. Seis dos 36 casos só reprovariam por vazamento ou alteração de A, não por status: o N2 da prévia e do `POST /deliveries` e o N3 de quatro leituras (B lista os próprios lançamentos, documentos, pendências e entregas). Resultado: 36/36, 12/12 com sessão revogada e 12/12 controles positivos.
 
-### E5 — C02, âncora do tempo de recuperação — 02/11/2026, após a coleta, na revisão do harness
+### E5 - C02, âncora do tempo de recuperação - 02/11/2026, após a coleta, na revisão do harness
 
 A §3 mede a partir de `/ready` 200. O harness ancorou em `clock_timestamp()` lido pelo driver depois que o orquestrador concluiu `docker compose up --wait db` (healthcheck a cada 2 s) e sinalizou por arquivo (varredura a cada 100 ms). O banco aceita conexões antes disso, então a âncora fica atrasada em relação à restauração real e os tempos estão subestimados em até cerca de 2 s (**INFERIDO** pelo intervalo do healthcheck). No P1 o executor publicou antes da âncora (de −1,2 a −0,5 s). O veredito não muda: maior tempo 28,3 s, meta 120 s.

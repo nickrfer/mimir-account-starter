@@ -1,4 +1,4 @@
-# Interface web (`@mimir/web`) — I10
+# Interface web (`@mimir/web`) - I10
 
 SPA React 19 + TypeScript + Vite que integra a primeira jornada funcional do Mimir-Account sobre a API HTTP (`/api/v1`):
 

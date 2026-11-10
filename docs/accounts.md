@@ -1,4 +1,4 @@
-# I03 — contas e revisão do acervo
+# I03 - contas e revisão do acervo
 
 Implementados somente GET/POST `/api/v1/accounts`, conforme OpenAPI vigente. Sem UI, consulta de conta individual, edição, inativação ou exclusão; recursos complementares aguardam contrato detalhado/incremento próprio. I04 e IA não fazem parte desta etapa.
 

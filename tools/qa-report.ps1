@@ -82,8 +82,8 @@ $html=[IO.File]::ReadAllText($templatePath,[Text.Encoding]::UTF8)
 $values=@{
     PROJECT=(Escape-Html $Project);DATE=(Escape-Html ([DateTimeOffset]::Parse($result.generatedAt).ToString("dd/MM/yyyy · HH:mm 'UTC'")));
     VERDICT=$(if($result.passed){'Rodada aprovada'}else{'Rodada com falha'});VERDICT_CLASS=$(if($result.passed){''}else{'failed'});
-    VERDICT_ICON=$(if($result.passed){'✓'}else{'!'});PASSED=$(if($null -eq $result.testsPassed){'—'}else{Escape-Html $result.testsPassed});
-    TESTS=$(if($null -eq $result.tests){'—'}else{Escape-Html $result.tests});FAILS=$(if($null -eq $result.testsFailed){'não informadas'}else{Escape-Html $result.testsFailed});
+    VERDICT_ICON=$(if($result.passed){'✓'}else{'!'});PASSED=$(if($null -eq $result.testsPassed){'-'}else{Escape-Html $result.testsPassed});
+    TESTS=$(if($null -eq $result.tests){'-'}else{Escape-Html $result.tests});FAILS=$(if($null -eq $result.testsFailed){'não informadas'}else{Escape-Html $result.testsFailed});
     STEPS=(Escape-Html $result.stepsPassed);IMAGES=$screens.Count;CASES=$cases.Count;
     CASE_COUNTS=("$(@($cases|Where-Object {$_.result -eq 'passou'}).Count) passaram · $(@($cases|Where-Object {$_.result -eq 'nao-executado'}).Count) não executados");
     VOLUMES=$(if($result.volumeRemoved){'Remoção registrada'}else{'Preservados'});

@@ -1,4 +1,4 @@
-# Lançamentos manuais — I04
+# Lançamentos manuais - I04
 
 POST /api/v1/transactions implementa TransactionInput/TransactionMutation do OpenAPI 0.5.0 sem alterar contratos. Requer sessão, Origin permitida, X-CSRF-Token e JSON de até 32 KiB. GET/edição/exclusão e telas ainda não existem. Revisão atual é obtida por GET /api/v1/session.
 

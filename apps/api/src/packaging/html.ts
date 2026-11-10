@@ -43,7 +43,7 @@ export function renderSummaryHtml(payload: CapturedPayload): Buffer {
   const transactionHeaders = ['Data', 'Conta', 'Tipo', 'Valor', 'Descrição', 'Categoria', 'Reembolso', 'Documentos', 'Ref.'];
 
   const period = formatPeriodMonth(delivery.periodMonth);
-  const title = `Entrega de ${period} — versão ${delivery.versionNumber}`;
+  const title = `Entrega de ${period} - versão ${delivery.versionNumber}`;
   const resolvedCount = payload.pendingItems.filter(p => p.status === 'RESOLVIDA').length;
   const overview: [string, string | number][] = [
     ['Empresa', workspace.companyName],
@@ -74,7 +74,7 @@ export function renderSummaryHtml(payload: CapturedPayload): Buffer {
       cell(describe(l.pjReimbursementTransactionId)), cell(l.pfInflowTransactionId ? describe(l.pfInflowTransactionId) : 'Não registrada'),
       cell(formatBrl(l.amountCents)), cell(label(l.roleInPeriod)), cell(shortRef(l.reimbursementLinkId))), 'Nenhum vínculo de reembolso.')}
 <h2>Pendências</h2>${table(['Movimentação', 'Tipo', 'Status', 'Descrição', 'Justificativa', 'Ref.'], payload.pendingItems, p => row(cell(describe(p.transactionId)),
-    cell(label(p.pendingType)), cell(label(p.status)), cell(p.description), cell(p.justification || '—'), cell(shortRef(p.pendingId))), 'Nenhuma pendência.')}
+    cell(label(p.pendingType)), cell(label(p.status)), cell(p.description), cell(p.justification || '-'), cell(shortRef(p.pendingId))), 'Nenhuma pendência.')}
 <h2>Documentos anexados</h2>${table(['Documento', 'Tipo', 'Tamanho', 'Motivo'], payload.documents, d => row(`<td>${documentLink(d)}</td>`,
     cell(label(d.mimeType)), cell(formatBytes(d.sizeBytes)), cell(inclusionReasons(d.documentId).map(label).join(', '))), 'Nenhum documento anexado.')}
 ${paragraph('A verificação de integridade exige cópia externa confiável do manifesto. Hashes não equivalem a assinatura digital. As referências iniciadas por # são o começo dos identificadores registrados no manifesto.json.')}</html>

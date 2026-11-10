@@ -63,7 +63,7 @@ const result = {
 
 const rows = records.map(r => `| ${r.n} | ${r.ref} | ${r.description} | ${r.chromium ? 'ok' : 'DIVERGE'} | ${r.libreoffice ? 'ok' : 'DIVERGE'} | ${r.user ? 'ok' : 'DIVERGE'} |`).join('\n');
 const linux = result.combinations[0];
-const md = `# Resultado C05 — Portabilidade offline (RNF-05)
+const md = `# Resultado C05 - Portabilidade offline (RNF-05)
 
 Veredito: **${verdict.toLowerCase()}** ao critério: ${result.criterion}
 

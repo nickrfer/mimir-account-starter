@@ -69,7 +69,7 @@ test('I14 format: dinheiro, datas, competência, tamanhos, referências e rótul
   for(const bad of [-1,1.5,Number.NaN])assert.throws(()=>f.formatBytes(bad),RangeError);
   assert.equal(f.shortRef('3f2a9c1d-0000-4000-8000-000000000001'),'#3f2a9c1d');
   const labels={ENTRADA:'Entrada',SAIDA:'Saída',RECEITA:'Receita',DESPESA:'Despesa',TRANSFERENCIA:'Transferência',A_ESCLARECER:'A esclarecer',
-    PF:'Pessoa física',PJ:'Pessoa jurídica',NAO_APLICAVEL:'—',PENDENTE_REEMBOLSO:'Reembolso pendente',REEMBOLSADA_NO_MES:'Reembolsada no mês',
+    PF:'Pessoa física',PJ:'Pessoa jurídica',NAO_APLICAVEL:'-',PENDENTE_REEMBOLSO:'Reembolso pendente',REEMBOLSADA_NO_MES:'Reembolsada no mês',
     REEMBOLSADA_OUTRO_MES:'Reembolsada em outro mês',LIQUIDACAO_DE_REEMBOLSO:'Liquidação de reembolso',DESPESA_ORIGEM_NO_PERIODO:'Despesa de origem no mês',
     REEMBOLSO_PJ_NO_PERIODO:'Reembolso PJ no mês',AMBOS_NO_PERIODO:'Despesa e reembolso no mês',ENTRADA_PF_NO_PERIODO:'Entrada PF no mês',
     DOCUMENTO_AUSENTE:'Documento ausente',CLASSIFICACAO_A_ESCLARECER:'Classificação a esclarecer',REEMBOLSO_PF_PENDENTE:'Reembolso PF pendente',
@@ -81,7 +81,7 @@ test('I14 format: dinheiro, datas, competência, tamanhos, referências e rótul
 
 test('I14 resumo: valores, datas, competência, rótulos e acentos legíveis, sem códigos nem UUID como texto',async()=>{
   const html=await render(payload()),body=text(html);
-  assert.match(html,/<title>Entrega de outubro de 2026 — versão 2<\/title>/);assert.match(html,/<h1>Entrega de outubro de 2026 — versão 2<\/h1>/);
+  assert.match(html,/<title>Entrega de outubro de 2026 - versão 2<\/title>/);assert.match(html,/<h1>Entrega de outubro de 2026 - versão 2<\/h1>/);
   for(const expected of ['R$ 1.234.567,89','-R$ 1.234.567,89','R$ 12,50','03/10/2026','12/10/2026','05/11/2026','Saída · Despesa','Entrada · Receita',
     'Saída · Transferência','Reembolsada em outro mês','Liquidação de reembolso','Pessoa física','Pessoa jurídica','Conta PF (Pessoa física)','Conta PJ (Pessoa jurídica)'])
     assert.ok(body.includes(expected),expected);
@@ -116,7 +116,7 @@ test('I14 resumo: vínculos e pendências descritos pela movimentação com refe
   assert.ok(html.includes('<td>Movimentação fora do pacote #00000409</td>'));assert.ok(html.includes('<td>Movimentação fora do pacote #00000410</td>'));
   assert.ok(html.includes('<td>CODIGO_FUTURO</td>'),'papel desconhecido aparece literal');
   assert.ok(html.includes('<tr><td>12/10/2026 · Serviço prestado · R$ 12,50</td><td>Documento ausente</td><td>Justificada</td><td>Movimentação sem comprovante.</td><td>Cliente &lt;não&gt; enviou</td><td>#00000701</td></tr>'));
-  assert.ok(html.includes('<td>Dúvida registrada</td><td>Aberta</td><td>Conferir alíquota</td><td>—</td><td>#00000702</td>'));
+  assert.ok(html.includes('<td>Dúvida registrada</td><td>Aberta</td><td>Conferir alíquota</td><td>-</td><td>#00000702</td>'));
   assert.ok(html.includes('<td>#00000401</td></tr>'),'movimentação traz referência');
 });
 

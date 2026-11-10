@@ -1,4 +1,4 @@
-# I02 — autenticação e provisionamento
+# I02 - autenticação e provisionamento
 
 ## Provisionar proprietário sem senha em argumentos
 

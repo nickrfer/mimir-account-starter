@@ -28,7 +28,7 @@ async function workspace(label, transactions, documents) {
   for (let i = 0; i < transactions; i++) {
     const income = i % 5 === 0, personal = i % 7 === 0 && !income;
     ids.push(ok(await a.request('POST', '/transactions', { accountId: personal ? pf : pj, occurredOn: `${MONTH}-${String(1 + (i % 28)).padStart(2, '0')}`,
-      direction: income ? 'ENTRADA' : 'SAIDA', amountCents: 1000 + i * 37, description: `Movimentação sintética ${i} — ação ç`, category: ['SERVICOS', 'INFRA', 'TARIFAS', 'IMPOSTOS'][i % 4],
+      direction: income ? 'ENTRADA' : 'SAIDA', amountCents: 1000 + i * 37, description: `Movimentação sintética ${i} - ação ç`, category: ['SERVICOS', 'INFRA', 'TARIFAS', 'IMPOSTOS'][i % 4],
       classification: income ? 'RECEITA' : 'DESPESA', isPfBusinessExpense: personal, explanation: '', expectedRevision: await rev() }), 201).transaction.transactionId);
   }
   for (let i = 0; i < documents; i++) {
@@ -87,7 +87,7 @@ try {
     limitTest: { documents: limitDocs.n, documentBytes: Number(limitDocs.b), status: limitRun.status, ms: limitRun.ms, zipBytes: limitRun.zipSize, downloadedBytes: limitRun.downloadedBytes,
       peakRssBytes: limitHwm, peakRssMiB: Math.round(limitHwm / 1048576 * 10) / 10 },
     substitutions: invalidRuns, verdict: verdict ? 'ATENDE' : 'NAO_ATENDE', warmups, samples };
-  await writeResult(result, `# Resultado C06 — Desempenho (RNF-06)
+  await writeResult(result, `# Resultado C06 - Desempenho (RNF-06)
 
 Veredito: **${verdict ? 'atende' : 'não atende'}** ao critério: ${result.criterion}
 

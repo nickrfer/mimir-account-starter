@@ -1,4 +1,4 @@
-# Documentos — I05
+# Documentos - I05
 
 Implementado somente POST /api/v1/transactions/{id}/documents, conforme OpenAPI 0.5.0. Requer sessão, Origin permitida e X-CSRF-Token; multipart/form-data com exatamente file (arquivo) e expectedRevision (texto decimal inteiro positivo seguro). Não definir Content-Type manualmente ao usar FormData: o cliente gera boundary. Campos repetidos/extras são rejeitados; revisão atual vem de GET /api/v1/session. Não há interface documental nesta etapa.
 

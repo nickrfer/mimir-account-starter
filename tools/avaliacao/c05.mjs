@@ -6,7 +6,7 @@ import { adminClient, client, environment, identity, sha, sleep, startApi, write
 const MONTH = '2026-10';
 const RECORDS = [
   { date: '2026-10-01', account: 'PJ', direction: 'ENTRADA', classification: 'RECEITA', cents: 1, description: 'Receita mínima de 1 centavo', category: 'SERVIÇOS' },
-  { date: '2026-10-02', account: 'PJ', direction: 'ENTRADA', classification: 'RECEITA', cents: 123456789, description: 'Consultoria — São Paulo/SP', category: 'SERVIÇOS', doc: 'NFS-e nº 123.pdf' },
+  { date: '2026-10-02', account: 'PJ', direction: 'ENTRADA', classification: 'RECEITA', cents: 123456789, description: 'Consultoria - São Paulo/SP', category: 'SERVIÇOS', doc: 'NFS-e nº 123.pdf' },
   { date: '2026-10-03', account: 'PJ', direction: 'ENTRADA', classification: 'RECEITA', cents: 99999999999, description: 'Valor máximo permitido', category: 'SERVIÇOS' },
   { date: '2026-10-04', account: 'PJ', direction: 'SAIDA', classification: 'DESPESA', cents: 4590, description: 'Café & pão de queijo', category: 'ALIMENTAÇÃO', doc: 'cupom-café.pdf' },
   { date: '2026-10-05', account: 'PJ', direction: 'SAIDA', classification: 'DESPESA', cents: 12000, description: 'Ação "promocional", com vírgula', category: 'MARKETING' },
@@ -18,11 +18,11 @@ const RECORDS = [
   { date: '2026-10-11', account: 'PF', direction: 'ENTRADA', classification: 'RECEITA', cents: 50000, description: 'Receita pessoal fora do total da empresa', category: 'PESSOAL' },
   { date: '2026-10-12', account: 'PJ', direction: 'SAIDA', classification: 'TRANSFERENCIA', cents: 100000, description: 'Transferência entre contas PJ', category: 'TRANSFERÊNCIAS' },
   { date: '2026-10-13', account: 'PJ', direction: 'SAIDA', classification: 'DESPESA', cents: 990, description: 'Tarifa de manutenção', category: 'TARIFAS', justify: 'Extrato não traz comprovante individual' },
-  { date: '2026-10-14', account: 'PJ', direction: 'SAIDA', classification: 'DESPESA', cents: 1000000, description: 'Equipamento — notebook', category: 'EQUIPAMENTOS', doc: 'nf-notebook.pdf' },
+  { date: '2026-10-14', account: 'PJ', direction: 'SAIDA', classification: 'DESPESA', cents: 1000000, description: 'Equipamento - notebook', category: 'EQUIPAMENTOS', doc: 'nf-notebook.pdf' },
   { date: '2026-10-15', account: 'PJ', direction: 'ENTRADA', classification: 'RECEITA', cents: 75025, description: 'Receita com quebra\nde linha na descrição', category: 'SERVIÇOS' },
   { date: '2026-10-20', account: 'PJ', direction: 'SAIDA', classification: 'DESPESA', cents: 33333, description: 'Licença de software (anual)', category: 'SOFTWARE', doc: 'licença.pdf' },
   { date: '2026-10-25', account: 'PJ', direction: 'SAIDA', classification: 'DESPESA', cents: 6000, description: "Aspas simples 'teste' e apóstrofo d'água", category: 'OUTROS' },
-  { date: '2026-10-28', account: 'PJ', direction: 'SAIDA', classification: 'DESPESA', cents: 2501, description: 'Imposto sobre serviço — ISS', category: 'IMPOSTOS' },
+  { date: '2026-10-28', account: 'PJ', direction: 'SAIDA', classification: 'DESPESA', cents: 2501, description: 'Imposto sobre serviço - ISS', category: 'IMPOSTOS' },
   { date: '2026-10-30', account: 'PJ', direction: 'ENTRADA', classification: 'TRANSFERENCIA', cents: 100000, description: 'Entrada de transferência PJ', category: 'TRANSFERÊNCIAS' },
   { date: '2026-10-31', account: 'PJ', direction: 'SAIDA', classification: 'DESPESA', cents: 4200, description: 'Último dia do mês', category: 'OUTROS' },
 ];
@@ -43,7 +43,7 @@ try {
   const A = await identity(api, 'Exemplo Sintético C05 Ltda'), a = client(api, await A.login());
   const rev = async () => Number((await admin.query('SELECT revision::text n FROM mimir.workspaces WHERE id=$1', [A.workspaceId])).rows[0].n);
   const ok = (r, code) => { if (r.status !== code) throw new Error(`setup ${r.status} ${JSON.stringify(r.json)}`); return r.json; };
-  const accounts = { PJ: ok(await a.request('POST', '/accounts', { name: 'Conta Corrente PJ — Banco Ação', accountType: 'PJ', expectedRevision: await rev() }), 201).account.id,
+  const accounts = { PJ: ok(await a.request('POST', '/accounts', { name: 'Conta Corrente PJ - Banco Ação', accountType: 'PJ', expectedRevision: await rev() }), 201).account.id,
     PF: ok(await a.request('POST', '/accounts', { name: 'Cartão do Sócio PF', accountType: 'PF', expectedRevision: await rev() }), 201).account.id };
   const ids = [];
   for (const r of RECORDS) {

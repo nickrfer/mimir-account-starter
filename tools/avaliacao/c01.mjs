@@ -143,7 +143,7 @@ try {
     summary: { runs: runs.length, pass: runs.filter(r => r.pass).length, mixed: runs.filter(r => !r.consistent).length, v1Preserved: runs.filter(r => r.v1Preserved).length, byType,
       substitutions: invalid.length + invalidRuns.length }, substitutions: [...invalidRuns, ...invalid], verdict: verdict ? 'ATENDE' : 'NAO_ATENDE', runs };
   const label = { M1: 'Correção de valor', M2: 'Upload de documento', M3: 'Vínculo de reembolso', M4: 'Justificativa de pendência' };
-  await writeResult(result, `# Resultado C01 — Consistência da captura (RNF-01)
+  await writeResult(result, `# Resultado C01 - Consistência da captura (RNF-01)
 
 Veredito: **${verdict ? 'atende' : 'não atende'}** ao critério: ${result.criterion}
 

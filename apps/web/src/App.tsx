@@ -2062,7 +2062,7 @@ export function App() {
                             {importResult.rows.map((row) => (
                               <tr key={row.line}>
                                 <td className="mono">{row.line}</td>
-                                <td className="mono">{row.externalId ?? '—'}</td>
+                                <td className="mono">{row.externalId ?? '-'}</td>
                                 <td><span className="status-chip">{importStatusLabel(row.status)}</span></td>
                                 <td>
                                   {row.code ? importReasonLabel(row.code) : ''}
@@ -2252,7 +2252,7 @@ export function App() {
                       ) : (
                         preview!.transactions.map((tx) => (
                           <option key={tx.transactionId} value={tx.transactionId}>
-                            {tx.occurredOn} · [{tx.accountType}] {tx.descriptionOriginal} ({formatBrlCents(tx.amountCents)}) — {tx.documentIds.length} anexo(s)
+                            {tx.occurredOn} · [{tx.accountType}] {tx.descriptionOriginal} ({formatBrlCents(tx.amountCents)}) - {tx.documentIds.length} anexo(s)
                           </option>
                         ))
                       )}
@@ -2863,7 +2863,7 @@ export function App() {
                   <label className="field">
                     <span>
                       Motivo de retificação{' '}
-                      {requiresRectification ? '(obrigatório a partir da v2 — mín. 3 caracteres)' : '(vazio na v1)'}
+                      {requiresRectification ? '(obrigatório a partir da v2 - mín. 3 caracteres)' : '(vazio na v1)'}
                     </span>
                     <input
                       type="text"

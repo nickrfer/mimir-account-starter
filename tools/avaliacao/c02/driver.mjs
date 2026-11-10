@@ -116,7 +116,7 @@ try {
     summary: { runs: runs.length, recovered: runs.filter(r => r.pass).length, terminalFailures: runs.filter(r => r.status === 'FALHA').length, maxSecondsAfterRestore: Math.max(...runs.map(r => r.secondsAfterRestore ?? Infinity)), byPoint, substitutions: invalidRuns.length },
     substitutions: invalidRuns, verdict: verdict ? 'ATENDE' : 'NAO_ATENDE', runs };
   const label = { P1: 'Aquisição (banco parado)', P2: 'Leitura do snapshot (banco parado)', P3: 'Leitura de anexos (banco parado)', P4: 'Publicação (banco parado)', P5: 'Processo do executor encerrado (SIGKILL)' };
-  await writeResult(result, `# Resultado C02 — Recuperação (RNF-02)
+  await writeResult(result, `# Resultado C02 - Recuperação (RNF-02)
 
 Veredito: **${verdict ? 'atende' : 'não atende'}** ao critério: ${result.criterion}
 
