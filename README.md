@@ -1,6 +1,6 @@
 # Mimir Account
 
-PoC de organização financeira/documental mensal. **Versão avaliada: tag `poc-v1.0.0` (incrementos I01–I16).** A primeira jornada funcional completa (I01–I10) cobre fundação Docker, provisionamento/sessões, contas PF/PJ, lançamentos manuais, upload documental imutável, prévia mensal consistente, captura imutável de snapshot, executor/empacotamento/publicação, verificador CLI independente e integração da interface web; I11–I16 completam os 14 requisitos funcionais. **A avaliação formal C01–C06 foi executada em 02/11/2026**: protocolo, vereditos, desvios declarados e registros em [resultados da avaliação](docs/avaliacao/resultados/README.md). IA permanece somente planejada. Resultados e limites de validação em [STATUS](docs/STATUS.md).
+PoC de organização financeira/documental mensal. **Versão avaliada: tag `poc-v1.0.0` (incrementos I01–I16).** A primeira jornada funcional completa (I01–I10) cobre fundação Docker, provisionamento/sessões, contas PF/PJ, lançamentos manuais, upload documental imutável, prévia mensal consistente, captura imutável de snapshot, executor/empacotamento/publicação, verificador CLI independente e integração da interface web; I11–I16 completam os 14 requisitos funcionais. **A avaliação formal C01–C06 foi executada em 02/11/2026**: protocolo, vereditos, desvios declarados e registros em [resultados da avaliação](docs/avaliacao/resultados/README.md). IA permanece somente planejada. Artefatos de apoio ao desenvolvimento (configuração de ferramentas, especificações internas de incremento e evidências locais de execução E2E) permanecem em repositório privado (`mimir-account-starter-docs`), disponíveis à banca examinadora mediante solicitação.
 
 ## Fluxo principal: Docker e Compose
 
@@ -35,13 +35,13 @@ Para criar proprietário, seguir [provisionamento por stdin e autenticação](do
 
 Implementados POST/GET/DELETE `/api/v1/session`, conforme contrato: Argon2id, cookie HttpOnly/SameSite=Lax, 8 h absolutas, token armazenado apenas como SHA-256, CSRF, rotação/revogação e limite de login. Login requer Origin exata e JSON; logout requer também X-CSRF-Token. HTTP sem Secure é exceção explícita apenas local; HTTPS mantém Secure. Sem UI de login nesta etapa.
 
-Origens locais padrão: localhost/127.0.0.1 nas portas 3000 e 5173. Ao mudar porta, ajustar MIMIR_ALLOWED_ORIGINS em .env; MIMIR_ALLOW_LOCAL_HTTP controla exceção. No Node direto, usar APP_ORIGINS/ALLOW_LOCAL_HTTP em .env.runtime. Contadores de login em memória reiniciam com API; sessões permanecem no banco. [Evidências I02](docs/evidence/I02.md).
+Origens locais padrão: localhost/127.0.0.1 nas portas 3000 e 5173. Ao mudar porta, ajustar MIMIR_ALLOWED_ORIGINS em .env; MIMIR_ALLOW_LOCAL_HTTP controla exceção. No Node direto, usar APP_ORIGINS/ALLOW_LOCAL_HTTP em .env.runtime. Contadores de login em memória reiniciam com API; sessões permanecem no banco.
 
 ## Contas PF/PJ e revisão — I03
 
 Implementados GET/POST `/api/v1/accounts`, com sessão própria; criação exige Origin/CSRF e expectedRevision. Nome NFC/trim, chave única em minúsculas por espaço, paginação por UUID (100 padrão, 200 máximo). Conta e incremento de revisão fazem commit/rollback juntos. Revisão desatualizada, duplicata ou limite seguro retornam 409 sem alterar dados; sessão é revalidada depois de obter lock.
 
-Para atualizar instalação existente, repetir migração e build API dos comandos acima. Migração 003 ajusta somente chave interna derivada para expansão Unicode; 001/002 e contratos preservados. [Funcionamento de contas](docs/accounts.md) e [evidências I03](docs/evidence/I03.md). Sem edição/inativação de contas ou novas telas nesta etapa.
+Para atualizar instalação existente, repetir migração e build API dos comandos acima. Migração 003 ajusta somente chave interna derivada para expansão Unicode; 001/002 e contratos preservados. [Funcionamento de contas](docs/accounts.md). Sem edição/inativação de contas ou novas telas nesta etapa.
 
 Banco em rede interna, sem porta publicada. API escuta 0.0.0.0 internamente e publica somente 127.0.0.1:3000. Porta pode ser alterada por MIMIR_HTTP_PORT em .env. Volume pgdata monta /var/lib/postgresql, conforme imagem PostgreSQL 18.
 
@@ -53,13 +53,13 @@ Implementado POST `/api/v1/transactions`, com sessão, Origin/CSRF, conta própr
 
 Período, lançamento, pendências iniciais e um avanço de revisão fazem commit/rollback juntos. A sessão é revalidada após esperas de bloqueio. JSON desta rota aceita até 32 KiB para campos Unicode máximos; rotas anteriores continuam em 8 KiB. Migração 004 acrescenta pending_items, com FK composta e somente SELECT/INSERT para runtime. Atualização usa os mesmos comandos migrate/build acima, preservando volumes.
 
-[Regras e limites](docs/transactions.md) e [evidências I04](docs/evidence/I04.md). Sem edição de lançamentos, telas ou gestão completa de pendências. I05 reconcilia as pendências ao anexar documentos; I06 permite leitura mensal. Reembolso e IA não foram implementados.
+[Regras e limites](docs/transactions.md). Sem edição de lançamentos, telas ou gestão completa de pendências. I05 reconcilia as pendências ao anexar documentos; I06 permite leitura mensal. Reembolso e IA não foram implementados.
 
 ## Upload documental — I05
 
 Implementado POST `/api/v1/transactions/{id}/documents`: multipart com exatamente file e expectedRevision, sessão/Origin/CSRF e movimentação própria ativa. PDF/PNG/JPEG até 5 MiB, extensão/MIME/assinatura conferidos, SHA-256 calculado no servidor. Documento imutável, vínculo, reconciliação de pendências e revisão única persistem juntos; erro reverte tudo.
 
-Migração 005 concede somente colunas de reconciliação em pending_items; documentos continuam sem UPDATE/DELETE/TRUNCATE. Use os mesmos comandos migrate/build já apresentados. Até duas admissões simultâneas por processo, corpo limitado a 5 MiB + 16 KiB de envelope, sem temporários de upload. Excesso simultâneo retorna 429. [Uso/regras/limitações](docs/documents.md) e [evidências I05](docs/evidence/I05.md).
+Migração 005 concede somente colunas de reconciliação em pending_items; documentos continuam sem UPDATE/DELETE/TRUNCATE. Use os mesmos comandos migrate/build já apresentados. Até duas admissões simultâneas por processo, corpo limitado a 5 MiB + 16 KiB de envelope, sem temporários de upload. Excesso simultâneo retorna 429. [Uso/regras/limitações](docs/documents.md).
 
 Sem download, reutilização/substituição/desvínculo ou telas. Verificação de assinatura não comprova ausência de malware.
 
@@ -69,25 +69,25 @@ GET `/api/v1/periods/2026-11/preview`, com cookie de sessão própria; sem CSRF 
 
 Movimentações ativas principais, contas (inclusive histórico de conta inativa), documentos e pendências compõem a prévia. Fluxos por conta/categoria incluem transferências; receita PF não soma receita empresarial. Pendências resolvidas aparecem sem entrar nas contagens pendente/justificada. Ordenação por data/ID, tipo/ID e categoria por bytes UTF-8. Excesso de 1.000 registros, 1.000 documentos únicos, 10.000 associações ou 100 MiB únicos retorna 413 sem truncar.
 
-Não existem vínculos de reembolso implementados: `contextTransactions` e `reimbursementLinks` vazios, liquidação zero e despesa PF empresarial pendente. Não se infere vínculo por coincidência de valor/data. [Escopo e decisões](docs/implementation/I06.md), [evidências](docs/evidence/I06.md).
+Não existem vínculos de reembolso implementados: `contextTransactions` e `reimbursementLinks` vazios, liquidação zero e despesa PF empresarial pendente. Não se infere vínculo por coincidência de valor/data.
 
 ## Captura, executor e publicação — I07 e I08
 
 - `POST /api/v1/deliveries`: exige `Idempotency-Key` (16–128 ASCII), `periodMonth`, `expectedRevision` e `rectificationReason`. Consulta a chave antes da revisão sob bloqueio do espaço; repetição idêntica retorna a operação existente (`202` não terminal, `200` terminal) e payload divergente retorna `409 IDEMPOTENCY_PAYLOAD_MISMATCH`. Captura o snapshot completo (`mimir.snapshot.v1`), referências documentais e operação `EM_FILA` sem incrementar `revision`.
 - `GET /api/v1/operations/{id}` e `GET /api/v1/periods/{month}/deliveries`: consultam estado e histórico paginado sem expor tokens internos de posse.
 - `DeliveryExecutor` (processo da API): polling a cada 2 s, 1 trabalho por vez, lease de 30 s renovado a cada 5 s, token monotônico (`fencing_token`), até 3 tentativas (retries em 2 s e 5 s; falha terminal ou varredura de lease expirado na 3ª tentativa). Empacota `resumo.html`, `movimentacoes.csv`, `manifesto.json` (`mimir.manifest.v2`) e `anexos/{documentId}.{ext}` exclusivamente a partir do snapshot imutável, em `/tmp/mimir-delivery` (`tmpfs`), e publica em `delivery_packages` + `PRONTA` no mesmo commit.
-- `GET /api/v1/deliveries/{snapshotId}/package` e `GET /api/v1/deliveries/{snapshotId}/manifest`: retornam `409 DELIVERY_NOT_READY` enquanto não pronta e servem os bytes exatos publicados quando `PRONTA`. Detalhes em [I07](docs/implementation/I07.md), [I08](docs/implementation/I08.md) e [evidência I08](docs/evidence/I08.md).
+- `GET /api/v1/deliveries/{snapshotId}/package` e `GET /api/v1/deliveries/{snapshotId}/manifest`: retornam `409 DELIVERY_NOT_READY` enquanto não pronta e servem os bytes exatos publicados quando `PRONTA`.
 
 ## Verificador CLI independente — I09
 
 - `node packages/verifier/dist/index.js <diretorio-extraido> <manifesto-externo.json>` (ou `--package-dir` / `--reference-manifest`): valida offline pacotes extraídos contra um manifesto de referência externo (`mimir.manifest.v2`).
 - Retorna código `0` para pacote íntegro e válido, `1` para qualquer violação de integridade/schema/relações/cálculos (recalculando `cashFlowByAccount`, `categoryTotals`, `businessRevenueTotalCents`, `businessExpenseTotalCents`, `reimbursementsSettledInPeriodCents`, `pendingCount`, `justifiedCount`, tamanhos/SHA-256, ausência de arquivos extras/faltantes/symlinks, `movimentacoes.csv` v1 e ausência de conteúdo ativo em `resumo.html`) e `2` para argumentos inválidos ou autorreferência ao `manifesto.json` interno.
-- Executado também no contêiner isolado `verifier` (`network_mode: none`, `read_only: true`) sobre o pacote real gerado pela API/Executor na etapa `verifier-package` da suíte Docker. Detalhes em [I09](docs/implementation/I09.md) e [evidência I09](docs/evidence/I09.md).
+- Executado também no contêiner isolado `verifier` (`network_mode: none`, `read_only: true`) sobre o pacote real gerado pela API/Executor na etapa `verifier-package` da suíte Docker.
 
 ## Interface web da primeira jornada — I10
 
 - SPA React 19 + TypeScript (`apps/web`) servida pela API em `/` e via Vite em `127.0.0.1:5173` (perfil `dev`), respeitando `Content-Security-Policy: default-src 'self'`.
-- Cobre toda a primeira jornada funcional: login/logout (`POST/GET/DELETE /api/v1/session`), contas PF/PJ (`GET/POST /api/v1/accounts`), lançamentos manuais com conversão determinística para centavos (`POST /api/v1/transactions`), upload documental imutável (`POST /api/v1/transactions/{id}/documents`), prévia mensal consistente (`GET /api/v1/periods/{month}/preview`), captura idempotente (`POST /api/v1/deliveries`), polling da operação (`GET /api/v1/operations/{id}`), histórico (`GET /api/v1/periods/{month}/deliveries`), downloads de pacote ZIP e manifesto v2 (`/package` e `/manifest`) e comando pronto para o verificador CLI (`@mimir/verifier`). Detalhes em [I10](docs/implementation/I10.md) e [evidência I10](docs/evidence/I10.md).
+- Cobre toda a primeira jornada funcional: login/logout (`POST/GET/DELETE /api/v1/session`), contas PF/PJ (`GET/POST /api/v1/accounts`), lançamentos manuais com conversão determinística para centavos (`POST /api/v1/transactions`), upload documental imutável (`POST /api/v1/transactions/{id}/documents`), prévia mensal consistente (`GET /api/v1/periods/{month}/preview`), captura idempotente (`POST /api/v1/deliveries`), polling da operação (`GET /api/v1/operations/{id}`), histórico (`GET /api/v1/periods/{month}/deliveries`), downloads de pacote ZIP e manifesto v2 (`/package` e `/manifest`) e comando pronto para o verificador CLI (`@mimir/verifier`).
 
 ## Logs e encerramento
 
@@ -125,7 +125,7 @@ Somente testes unitários, sem iniciar banco:
 docker compose run --build --rm --no-deps --entrypoint node admin tools/checks/tests.mjs unit
 ```
 
-Resultado atual: testes unitários, PostgreSQL/HTTP e probes na API real passaram em Docker Windows; contagens/resultados em [STATUS](docs/STATUS.md) e [evidência I09](docs/evidence/I09.md). Sessão mantém expiração absoluta e conta/lançamento/documento/snapshot/pacote permanecem após recriar API/banco. Execução integral POSIX em host Linux ainda não realizada e não bloqueia Windows. Evidências anteriores preservadas.
+Resultado atual: testes unitários, PostgreSQL/HTTP e probes na API real passaram em Docker Windows; resultados da avaliação formal em [docs/avaliacao/resultados](docs/avaliacao/resultados/README.md). Sessão mantém expiração absoluta e conta/lançamento/documento/snapshot/pacote permanecem após recriar API/banco. Execução integral POSIX em host Linux ainda não realizada e não bloqueia Windows. Evidências anteriores preservadas.
 
 ## Desenvolvimento com Vite em contêiner
 
@@ -173,4 +173,4 @@ Esquema: users, workspaces, sessions, accounts, periods, transactions, documents
 
 [Assistente de preparação mensal com IA](docs/optional-monthly-assistant.md): **somente proposta**, depois da jornada funcional, desabilitado por padrão. Sem SDK/chave/tela/configuração antecipada; sistema permanece independente de IA.
 
-Consulte [STATUS](docs/STATUS.md), [DECISIONS](docs/DECISIONS.md), [DEPENDENCIES](docs/DEPENDENCIES.md) e [START_HERE](docs/START_HERE.md). Contratos vigentes preservados: manifesto v2, CSV v1 e OpenAPI 0.5.0. Licença própria MIT. Sem deploy em nuvem: a execução de referência é local.
+Consulte [adr/DECISIONS](docs/adr/DECISIONS.md), [DEPENDENCIES](docs/DEPENDENCIES.md) e [START_HERE](docs/START_HERE.md). Contratos vigentes preservados: manifesto v2, CSV v1 e OpenAPI 0.5.0. Licença própria MIT. Sem deploy em nuvem: a execução de referência é local.
