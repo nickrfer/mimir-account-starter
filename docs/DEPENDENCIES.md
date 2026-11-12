@@ -24,7 +24,7 @@ Imagens fixadas por digest, além da versão, em Dockerfile e compose.yaml:
 
 Consultas npm foram executadas com `npmview <pacote> version license engines`, usando NODE_OPTIONS=--use-system-ca para confiar no repositório de certificados do Windows. Não foi desativada a validação TLS. O engine do Vite exige Node ^20.19.0 ou >=22.12.0; pg exige >=16. O projeto limita Node a >=24.22.1 <25, alinhado à versão LTS instalada e à imagem. O build foi exercitado no Windows e em Linux.
 
-`pnpmlicenses list --json` e `pnpm--filter @mimir/web licenses list --json` conferiram as dependências instaladas. Licenças transitivas observadas: MIT, Apache-2.0, ISC, BSD-3-Clause e MPL-2.0 (lightningcss 1.33.0, ferramenta de build não alterada). São compatíveis com o uso proposto; a licença própria MIT não substitui os avisos dos componentes. Inventário sanitizado em [dependencies.json](evidence/dependencies.json). Binários opcionais por SO/CPU também estão resolvidos no lockfile. As imagens mantêm suas licenças de distribuição e componentes.
+`pnpmlicenses list --json` e `pnpm--filter @mimir/web licenses list --json` conferiram as dependências instaladas. Licenças transitivas observadas: MIT, Apache-2.0, ISC, BSD-3-Clause e MPL-2.0 (lightningcss 1.33.0, ferramenta de build não alterada). São compatíveis com o uso proposto; a licença própria MIT não substitui os avisos dos componentes. Binários opcionais por SO/CPU também estão resolvidos no lockfile. As imagens mantêm suas licenças de distribuição e componentes.
 
 Fontes oficiais consultadas:
 
@@ -42,8 +42,8 @@ Não há garantia de atualização automática: novas versões exigem revisão d
 
 @node-rs/argon2 2.2.2 fixado no workspace API e no lockfile; biblioteca N-API com binários pré-compilados, sem toolchain nativa adicional no host. Metadados consultados em contêiner: versão 2.2.2, MIT, engine Node >=10. Testado com Node 24.22.1/Linux amd64 no Docker Desktop Windows; não foi repetido build Node nativo Windows nesta etapa. Lockfile foi resolvido em diretório temporário de metadados no contêiner e copiado de volta, sem instalar ferramenta global.
 
-Política: Argon2id v19, 65536 KiB, tempo 3, paralelismo 1, saída 32 bytes. Consulta oficial de tipos mostrou const enums ambientais; foram usados valores públicos numéricos tipados em Options para manter verbatimModuleSyntax estrito, sem alterar tsconfig. Medição de 5 amostras: hash mediana 98 ms (93–125); verificação 96 ms (94–103), neste ambiente somente. [Medição sanitizada](evidence/I02-argon2.json).
+Política: Argon2id v19, 65536 KiB, tempo 3, paralelismo 1, saída 32 bytes. Consulta oficial de tipos mostrou const enums ambientais; foram usados valores públicos numéricos tipados em Options para manter verbatimModuleSyntax estrito, sem alterar tsconfig. Medição de 5 amostras: hash mediana 98 ms (93–125); verificação 96 ms (94–103), neste ambiente somente.
 
 Fontes: [pacote oficial](https://github.com/napi-rs/node-rs/tree/main/packages/argon2), [tipos/opções oficiais](https://github.com/napi-rs/node-rs/blob/main/packages/argon2/index.d.ts), [metadados da versão](https://registry.npmjs.org/@node-rs/argon2/2.2.2) e [OWASP Password Storage](https://cheatsheetseries.owasp.org/cheatsheets/Password_Storage_Cheat_Sheet.html). Nenhum SDK de IA foi adicionado.
 
-`pnpm --filter @mimir/api licenses list --json` executado na imagem administrativa confirmou MIT também para o binário linux-x64-gnu 2.2.2. Inventário separado em [I02-dependencies.json](evidence/I02-dependencies.json), sem sobrescrever o de I01.
+`pnpm --filter @mimir/api licenses list --json` executado na imagem administrativa confirmou MIT também para o binário linux-x64-gnu 2.2.2.
