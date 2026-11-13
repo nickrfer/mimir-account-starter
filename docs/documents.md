@@ -46,4 +46,4 @@ docker compose run --rm admin migrate
 
 A repetição retorna migrationsApplied vazio. Instalação nova segue README; não regenerar segredos para volume existente. No Windows: tools/test-docker.ps1. Linux: sh tools/test-docker.sh (execução integral em host Linux ainda não verificada). Testes usam configuração/projeto/volume novos e preservam volumes.
 
-Suite cobre tipos/limites/multipart, bytes/hash SQL, autorização, revisão/concorrência, pendências, rollback por falhas após inserções, revogação durante bloqueios e grants reais. Probe na API do contêiner cria upload e verifica sessão/bytes/hash/vínculo/pendências/revisão após recriar banco/API. Resultados reais e limitações em [evidência I05](evidence/I05.md).
+Suite cobre tipos/limites/multipart, bytes/hash SQL, autorização, revisão/concorrência, pendências, rollback por falhas após inserções, revogação durante bloqueios e grants reais. Probe na API do contêiner cria upload e verifica sessão/bytes/hash/vínculo/pendências/revisão após recriar banco/API.

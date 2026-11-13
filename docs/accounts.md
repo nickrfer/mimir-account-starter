@@ -39,4 +39,4 @@ docker compose run --build --rm admin migrate
 docker compose up -d --build api
 ```
 
-Suíte completa no Windows: `& .\tools\test-docker.ps1`. Ela continua a usar projeto/volume novos, preserva dados existentes e executa PostgreSQL/HTTP reais, além de probes de conta/revisão após recriação. [Evidências I03](evidence/I03.md).
+Suíte completa no Windows: `& .\tools\test-docker.ps1`. Ela continua a usar projeto/volume novos, preserva dados existentes e executa PostgreSQL/HTTP reais, além de probes de conta/revisão após recriação.
