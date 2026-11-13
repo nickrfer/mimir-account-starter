@@ -2,6 +2,19 @@
 
 Versão avaliada: tag `poc-v1.0.0` (commit `14605c6`, I01–I16). Protocolo fixado antes da coleta em [`../protocolo-c01-c06.md`](../protocolo-c01-c06.md). Os commits da branch de avaliação só acrescentam documentação e `tools/avaliacao/`; cada resultado registra `productEqualToTag`.
 
+## Identificadores de commit
+
+Os registros desta pasta, o protocolo e o texto de resultados citam os commits como foram gravados durante a coleta, no histórico de desenvolvimento. No histórico publicado, a correspondência é esta (mesmo assunto e mesmo horário de cada commit):
+
+| Citado nos registros | Histórico publicado | Commit |
+| --- | --- | --- |
+| `14605c6` | `6d229ba` | tag `poc-v1.0.0` |
+| `d12005c` | `1f7333c` | fixação do protocolo |
+| `3794fec` | `1e8b22d` | errata E1 e harness da avaliação |
+| `9b6f435` | `b5d39af` | matriz do C03 alinhada à §4 (errata E4) |
+
+Os registros não foram editados depois da coleta.
+
 ## Veredito por requisito
 
 | RNF | Cenário | Veredito | Números principais |
